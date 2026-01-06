@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DaisySP Synth Controller</title>
+    <style>
+      :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: #12121a;
+        --accent: #00d4ff;
+        --accent-glow: #00d4ff40;
+        --text: #e8e8ff;
+        --text-dim: #888899;
+        --danger: #ff4466;
+        --success: #44ff88;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg-dark);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 2rem;
+        background: linear-gradient(135deg, var(--accent), #ff44aa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      .status {
+        text-align: center;
+        padding: 8px 16px;
+        border-radius: 20px;
+        margin: 10px auto 30px;
+        width: fit-content;
+        font-size: 0.9rem;
+      }
+
+      .status.connected {
+        background: var(--success) 20;
+        border: 1px solid var(--success);
+        color: var(--success);
+      }
+
+      .status.disconnected {
+        background: var(--danger) 20;
+        border: 1px solid var(--danger);
+        color: var(--danger);
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid #ffffff10;
+        box-shadow: 0 8px 32px #00000040;
+      }
+
+      .card h2 {
+        font-size: 1rem;
+        color: var(--accent);
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .control-group {
+        margin-bottom: 20px;
+      }
+
+      .control-group:last-child {
+        margin-bottom: 0;
+      }
+
+      label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+      }
+
+      label span.value {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: #1a1a2e;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        box-shadow: 0 0 10px var(--accent-glow);
+        transition: transform 0.1s;
+      }
+
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+
+      .synth-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .synth-btn {
+        flex: 1;
+        padding: 14px;
+        border: 2px solid var(--accent);
+        background: transparent;
+        color: var(--accent);
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .synth-btn.active {
+        background: var(--accent);
+        color: var(--bg-dark);
+      }
+
+      .synth-btn:hover {
+        background: var(--accent) 30;
+      }
+
+      .keyboard {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 10px;
+      }
+
+      .key {
+        width: 40px;
+        height: 120px;
+        background: linear-gradient(180deg, #fff, #ddd);
+        border-radius: 0 0 6px 6px;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.05s;
+      }
+
+      .key:active,
+      .key.pressed {
+        transform: translateY(3px);
+        background: linear-gradient(180deg, #ddd, #bbb);
+      }
+
+      .key.black {
+        width: 28px;
+        height: 75px;
+        background: linear-gradient(180deg, #333, #111);
+        margin: 0 -14px;
+        z-index: 1;
+      }
+
+      .key.black:active,
+      .key.black.pressed {
+        background: linear-gradient(180deg, #222, #000);
+      }
+
+      .midi-select {
+        width: 100%;
+        padding: 12px;
+        background: #1a1a2e;
+        border: 1px solid #ffffff20;
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .midi-select:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎹 DaisySP Synth Controller</h1>
+
+    <div id="status" class="status disconnected">🔴 No MIDI Device</div>
+
+    <div class="container">
+
+      <!-- Synth Mode -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>🎵 Synthesis Mode</h2>
+        <div class="synth-buttons" style="flex-wrap: wrap;">
+          <button class="synth-btn active" data-mode="0">🎹 Oscillator</button>
+          <button class="synth-btn" data-mode="1">🎸 Pluck</button>
+          <button class="synth-btn" data-mode="2">🎻 String</button>
+          <button class="synth-btn" data-mode="3">✨ StringVoice</button>
+        </div>
+      </div>
+      
+      <!-- Arpeggiator -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+          <h2 style="margin: 0;">🎼 Arpeggiator</h2>
+          <button class="synth-btn toggle-btn" data-cc="108" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+          <div class="control-group">
+            <label>BPM <span class="value" id="arpBpmVal">150</span></label>
+            <input type="range" id="arpBpm" min="0" max="127" value="64" data-cc="109" data-format="bpm" />
+          </div>
+          <div class="control-group">
+            <label>Gate <span class="value" id="arpGateVal">55%</span></label>
+            <input type="range" id="arpGate" min="0" max="127" value="64" data-cc="110" data-format="percent" />
+          </div>
+          <div class="control-group">
+            <label>Octaves <span class="value" id="arpOctVal">1</span></label>
+            <input type="range" id="arpOct" min="0" max="127" value="0" data-cc="112" data-format="octaves" />
+          </div>
+          <div>
+            <label style="margin-bottom: 8px; display: block;">Direction (CC111)</label>
+            <div class="synth-buttons" style="flex-wrap: wrap; gap: 5px;">
+              <button class="synth-btn arp-dir-btn active" data-dir="0" data-cc="111" style="padding: 5px 8px;">↑ Up</button>
+              <button class="synth-btn arp-dir-btn" data-dir="1" data-cc="111" style="padding: 5px 8px;">↓ Down</button>
+              <button class="synth-btn arp-dir-btn" data-dir="2" data-cc="111" style="padding: 5px 8px;">↕ UpDn</button>
+              <button class="synth-btn arp-dir-btn" data-dir="3" data-cc="111" style="padding: 5px 8px;">🎲 Rnd</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Oscillator Voice Controls -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>🎹 Oscillator Voice</h2>
+        <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 15px;">Waveform (CC70)</p>
+        <div class="synth-buttons" style="flex-wrap: wrap; margin-bottom: 15px;">
+          <button class="synth-btn waveform-btn" data-wf="0">SIN</button>
+          <button class="synth-btn waveform-btn" data-wf="1">TRI</button>
+          <button class="synth-btn waveform-btn active" data-wf="2">SAW</button>
+          <button class="synth-btn waveform-btn" data-wf="3">RAMP</button>
+          <button class="synth-btn waveform-btn" data-wf="4">SQ</button>
+          <button class="synth-btn waveform-btn" data-wf="5">pTRI</button>
+          <button class="synth-btn waveform-btn" data-wf="6">pSAW</button>
+          <button class="synth-btn waveform-btn" data-wf="7">pSQ</button>
+        </div>
+        <div class="control-group">
+          <label>Pulse Width (CC71) <span class="value" id="pwVal">64</span></label>
+          <input type="range" id="pulseWidth" min="0" max="127" value="64" data-cc="71" />
+        </div>
+        <div class="control-group">
+          <label>Osc2 Detune (CC79) <span class="value" id="detuneVal">13</span></label>
+          <input type="range" id="osc2Detune" min="0" max="127" value="13" data-cc="79" />
+        </div>
+        <div class="control-group">
+          <label>Osc2 Mix (CC80) <span class="value" id="osc2MixVal">64</span></label>
+          <input type="range" id="osc2Mix" min="0" max="127" value="64" data-cc="80" />
+        </div>
+      </div>
+      
+      <!-- Pluck Voice Controls -->
+      <div class="card">
+        <h2>🎸 Pluck Voice</h2>
+        <div class="control-group">
+          <label>Decay (CC72) <span class="value" id="pluckDecayVal">64</span></label>
+          <input type="range" id="pluckDecay" min="0" max="127" value="64" data-cc="72" />
+        </div>
+        <div class="control-group">
+          <label>Damp (CC73) <span class="value" id="pluckDampVal">64</span></label>
+          <input type="range" id="pluckDamp" min="0" max="127" value="64" data-cc="73" />
+        </div>
+      </div>
+      
+      <!-- String Voice Controls -->
+      <div class="card">
+        <h2>🎻 String Voice</h2>
+        <div class="control-group">
+          <label>Brightness (CC75) <span class="value" id="strBrightVal">64</span></label>
+          <input type="range" id="strBright" min="0" max="127" value="64" data-cc="75" />
+        </div>
+        <div class="control-group">
+          <label>Damping (CC77) <span class="value" id="strDampVal">89</span></label>
+          <input type="range" id="strDamp" min="0" max="127" value="89" data-cc="77" />
+        </div>
+        <div class="control-group">
+          <label>NonLinearity (CC78) <span class="value" id="strNLVal">64</span></label>
+          <input type="range" id="strNL" min="0" max="127" value="64" data-cc="78" />
+        </div>
+      </div>
+      
+      <!-- StringVoice Controls -->
+      <div class="card">
+        <h2>✨ StringVoice</h2>
+        <div class="control-group">
+          <label>Brightness (CC102) <span class="value" id="svBrightVal">64</span></label>
+          <input type="range" id="svBright" min="0" max="127" value="64" data-cc="102" />
+        </div>
+        <div class="control-group">
+          <label>Damping (CC103) <span class="value" id="svDampVal">64</span></label>
+          <input type="range" id="svDamp" min="0" max="127" value="64" data-cc="103" />
+        </div>
+        <div class="control-group">
+          <label>Structure (CC104) <span class="value" id="svStructVal">51</span></label>
+          <input type="range" id="svStruct" min="0" max="127" value="51" data-cc="104" />
+        </div>
+        <div class="control-group">
+          <label>Accent (CC105) <span class="value" id="svAccentVal">102</span></label>
+          <input type="range" id="svAccent" min="0" max="127" value="102" data-cc="105" />
+        </div>
+      </div>
+      
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>✨ Effects</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+          
+          <!-- Chorus -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Chorus</span>
+              <button class="synth-btn toggle-btn active" data-cc="66" data-state="1" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+            </div>
+            <label style="font-size: 0.7rem;">Mix</label>
+            <input type="range" id="chorus" min="0" max="127" value="38" data-cc="93" />
+            <label style="font-size: 0.7rem;">LFO Freq</label>
+            <input type="range" id="chorusLfoFreq" min="0" max="127" value="13" data-cc="113" />
+            <label style="font-size: 0.7rem;">LFO Depth</label>
+            <input type="range" id="chorusLfoDepth" min="0" max="127" value="38" data-cc="114" />
+            <label style="font-size: 0.7rem;">Delay</label>
+            <input type="range" id="chorusDelay" min="0" max="127" value="25" data-cc="115" />
+            <label style="font-size: 0.7rem;">Feedback</label>
+            <input type="range" id="chorusFb" min="0" max="127" value="25" data-cc="116" />
+          </div>
+          
+          <!-- Phaser -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Phaser</span>
+              <button class="synth-btn toggle-btn" data-cc="67" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+            </div>
+            <label style="font-size: 0.7rem;">Mix</label>
+            <input type="range" id="phaser" min="0" max="127" value="64" data-cc="95" />
+            <label style="font-size: 0.7rem;">LFO Freq</label>
+            <input type="range" id="phaserLfoFreq" min="0" max="127" value="12" data-cc="117" />
+            <label style="font-size: 0.7rem;">LFO Depth</label>
+            <input type="range" id="phaserLfoDepth" min="0" max="127" value="102" data-cc="118" />
+            <label style="font-size: 0.7rem;">Poles</label>
+            <input type="range" id="phaserPoles" min="0" max="127" value="48" data-cc="119" />
+            <label style="font-size: 0.7rem;">Feedback</label>
+            <input type="range" id="phaserFb" min="0" max="127" value="64" data-cc="120" />
+          </div>
+          
+          <!-- Reverb -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Reverb</span>
+              <button class="synth-btn toggle-btn active" data-cc="68" data-state="1" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+            </div>
+            <label style="font-size: 0.7rem;">Mix</label>
+            <input type="range" id="reverb" min="0" max="127" value="51" data-cc="91" />
+            <label style="font-size: 0.7rem;">Decay</label>
+            <input type="range" id="reverbDecay" min="0" max="127" value="115" data-cc="121" />
+            <label style="font-size: 0.7rem;">LP Freq</label>
+            <input type="range" id="reverbLp" min="0" max="127" value="64" data-cc="122" />
+          </div>
+          
+          <!-- Delay -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Delay</span>
+              <button class="synth-btn toggle-btn" data-cc="69" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+            </div>
+            <label style="font-size: 0.7rem;">Time</label>
+            <input type="range" id="delayTime" min="0" max="127" value="32" data-cc="85" />
+            <label style="font-size: 0.7rem;">Feedback</label>
+            <input type="range" id="delayFeedback" min="0" max="127" value="51" data-cc="86" />
+            <label style="font-size: 0.7rem;">Mix</label>
+            <input type="range" id="delayMix" min="0" max="127" value="38" data-cc="87" />
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- SVF Filter -->
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+          <h2 style="margin: 0;">🔊 SVF Filter</h2>
+          <button class="synth-btn toggle-btn active" data-cc="64" data-state="1" style="padding: 6px 12px; min-width: auto;">✓</button>
+        </div>
+        <div class="control-group">
+          <label>Cutoff (CC1) <span class="value" id="cutoffVal">64</span></label>
+          <input type="range" id="cutoff" min="0" max="127" value="64" data-cc="1" />
+        </div>
+        <div class="control-group">
+          <label>Resonance (CC74) <span class="value" id="resVal">64</span></label>
+          <input type="range" id="resonance" min="0" max="127" value="64" data-cc="74" />
+        </div>
+        <div class="control-group">
+          <label>Drive (CC21) <span class="value" id="driveVal">25</span></label>
+          <input type="range" id="drive" min="0" max="127" value="25" data-cc="21" />
+        </div>
+        <div class="control-group">
+          <label>LFO Rate (CC76) <span class="value" id="lfoVal">5</span></label>
+          <input type="range" id="lfoRate" min="0" max="127" value="5" data-cc="76" />
+        </div>
+      </div>
+      
+      <!-- Moog Filter -->
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+          <h2 style="margin: 0;">🎚️ Moog Ladder</h2>
+          <button class="synth-btn toggle-btn" data-cc="65" data-state="0" style="padding: 6px 12px; min-width: auto;">✗</button>
+        </div>
+        <div class="control-group">
+          <label>Cutoff (CC22) <span class="value" id="moogCutoffVal">64</span></label>
+          <input type="range" id="moogCutoff" min="0" max="127" value="64" data-cc="22" />
+        </div>
+        <div class="control-group">
+          <label>Resonance (CC23) <span class="value" id="moogResVal">38</span></label>
+          <input type="range" id="moogRes" min="0" max="127" value="38" data-cc="23" />
+        </div>
+      </div>
+
+      <!-- MIDI Devices & Volume -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>🎹 MIDI Devices</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+          <div>
+            <label style="margin-bottom: 8px; display: block;">Output (Synth)</label>
+            <select id="midiOutput" class="midi-select">
+              <option value="">Select Output...</option>
+            </select>
+          </div>
+          <div>
+            <label style="margin-bottom: 8px; display: block;">Input (Controller)</label>
+            <select id="midiInput" class="midi-select">
+              <option value="">Select Input...</option>
+            </select>
+            <div id="inputStatus" style="margin-top: 8px; font-size: 0.75rem; color: var(--text-dim);"></div>
+          </div>
+          <div>
+            <label style="margin-bottom: 8px; display: block;">Master Volume (CC7)</label>
+            <input type="range" id="masterVolume" min="0" max="127" value="42" data-cc="7" style="margin-bottom: 5px;" />
+            <div style="font-size: 0.7rem; color: var(--text-dim);">⚠️ Cuidado com valores altos!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard -->
+      <div class="card" style="grid-column: 1 / -1">
+        <h2>🎹 Keyboard</h2>
+        <div class="keyboard" id="keyboard"></div>
+      </div>
+    </div>
+
+    <script>
+      let midiOutput = null;
+      let midiInput = null;
+      let midiAccess = null;
+      const channel = 0; // MIDI Channel 1
+
+      // Initialize Web MIDI
+      async function initMIDI() {
+        try {
+          midiAccess = await navigator.requestMIDIAccess();
+          const outputSelect = document.getElementById("midiOutput");
+          const inputSelect = document.getElementById("midiInput");
+
+          // Populate outputs
+          midiAccess.outputs.forEach((output) => {
+            const option = document.createElement("option");
+            option.value = output.id;
+            option.textContent = output.name;
+            outputSelect.appendChild(option);
+
+            // Auto-select TinyUSB MIDI if found
+            if (output.name.toLowerCase().includes("tinyusb")) {
+              option.selected = true;
+              midiOutput = output;
+              updateStatus(true);
+            }
+          });
+          
+          // Populate inputs
+          midiAccess.inputs.forEach((input) => {
+            const option = document.createElement("option");
+            option.value = input.id;
+            option.textContent = input.name;
+            inputSelect.appendChild(option);
+          });
+
+          outputSelect.addEventListener("change", (e) => {
+            const outputId = e.target.value;
+            midiOutput = outputId ? midiAccess.outputs.get(outputId) : null;
+            updateStatus(!!midiOutput);
+          });
+          
+          inputSelect.addEventListener("change", (e) => {
+            // Disconnect previous input
+            if (midiInput) {
+              midiInput.onmidimessage = null;
+            }
+            
+            const inputId = e.target.value;
+            midiInput = inputId ? midiAccess.inputs.get(inputId) : null;
+            
+            if (midiInput) {
+              midiInput.onmidimessage = handleMIDIInput;
+              document.getElementById('inputStatus').textContent = '🟢 Routing: ' + midiInput.name;
+            } else {
+              document.getElementById('inputStatus').textContent = 'No input connected';
+            }
+          });
+        } catch (err) {
+          console.error("Web MIDI not supported:", err);
+          updateStatus(false, "Web MIDI not supported");
+        }
+      }
+      
+      // Handle incoming MIDI and forward to output
+      function handleMIDIInput(event) {
+        if (midiOutput && event.data) {
+          // Forward all MIDI messages to output
+          midiOutput.send(event.data);
+          
+          // Visual feedback on virtual keyboard for notes
+          const status = event.data[0] & 0xF0;
+          const note = event.data[1];
+          
+          if (status === 0x90 && event.data[2] > 0) {
+            document.querySelector(`[data-note="${note}"]`)?.classList.add('pressed');
+          } else if (status === 0x80 || (status === 0x90 && event.data[2] === 0)) {
+            document.querySelector(`[data-note="${note}"]`)?.classList.remove('pressed');
+          }
+        }
+      }
+
+      function updateStatus(connected, message) {
+        const status = document.getElementById("status");
+        if (connected) {
+          status.className = "status connected";
+          status.textContent = "🟢 Connected: " + midiOutput.name;
+        } else {
+          status.className = "status disconnected";
+          status.textContent = message || "🔴 No MIDI Device";
+        }
+      }
+
+      // Send MIDI messages
+      function sendCC(cc, value) {
+        if (midiOutput) {
+          midiOutput.send([0xb0 | channel, cc, value]);
+        }
+      }
+
+      function sendProgramChange(program) {
+        if (midiOutput) {
+          midiOutput.send([0xc0 | channel, program]);
+        }
+      }
+
+      function sendNoteOn(note, velocity = 100) {
+        if (midiOutput) {
+          midiOutput.send([0x90 | channel, note, velocity]);
+        }
+      }
+
+      function sendNoteOff(note) {
+        if (midiOutput) {
+          midiOutput.send([0x80 | channel, note, 0]);
+        }
+      }
+
+      // Format value based on data-format attribute
+      function formatValue(value, format) {
+        switch (format) {
+          case 'bpm':
+            return Math.round(60 + (value * 180 / 127));  // 60-240 BPM
+          case 'percent':
+            return Math.round(10 + (value * 90 / 127)) + '%';  // 10-100%
+          case 'octaves':
+            return 1 + Math.floor(value * 3 / 127);  // 1-4
+          default:
+            return value;
+        }
+      }
+
+      // Setup sliders
+      document.querySelectorAll('input[type="range"]').forEach((slider) => {
+        const valueDisplay = document.getElementById(slider.id + "Val");
+
+        slider.addEventListener("input", () => {
+          const cc = parseInt(slider.dataset.cc);
+          const value = parseInt(slider.value);
+          const format = slider.dataset.format;
+          if (valueDisplay) {
+            valueDisplay.textContent = formatValue(value, format);
+          }
+          sendCC(cc, value);
+        });
+      });
+
+      // Setup synth mode buttons (exclusive selection)
+      document.querySelectorAll(".synth-btn[data-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".synth-btn[data-mode]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          sendProgramChange(parseInt(btn.dataset.mode));
+        });
+      });
+      
+      // Setup toggle buttons for enable/disable (CC64-68)
+      document.querySelectorAll(".toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const cc = parseInt(btn.dataset.cc);
+          const newState = btn.dataset.state === "0" ? 1 : 0;
+          btn.dataset.state = newState;
+          
+          btn.textContent = newState ? "✓" : "✗";
+          btn.classList.toggle("active", newState);
+          
+          sendCC(cc, newState ? 127 : 0);
+        });
+      });
+      
+      // Setup waveform buttons (exclusive selection, send CC70)
+      document.querySelectorAll(".waveform-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".waveform-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const waveform = parseInt(btn.dataset.wf);
+          sendCC(70, Math.floor(waveform * 18.14));
+        });
+      });
+      
+      // Setup arp direction buttons (exclusive selection, send CC111)
+      document.querySelectorAll(".arp-dir-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".arp-dir-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const dir = parseInt(btn.dataset.dir);
+          sendCC(111, dir * 32);  // 0, 32, 64, 96 for Up/Down/UpDown/Random
+        });
+      });
+
+      // Build keyboard
+      function buildKeyboard() {
+        const keyboard = document.getElementById("keyboard");
+        const notes = [
+          { note: 60, black: false }, // C4
+          { note: 61, black: true }, // C#
+          { note: 62, black: false }, // D
+          { note: 63, black: true }, // D#
+          { note: 64, black: false }, // E
+          { note: 65, black: false }, // F
+          { note: 66, black: true }, // F#
+          { note: 67, black: false }, // G
+          { note: 68, black: true }, // G#
+          { note: 69, black: false }, // A
+          { note: 70, black: true }, // A#
+          { note: 71, black: false }, // B
+          { note: 72, black: false }, // C5
+        ];
+
+        notes.forEach(({ note, black }) => {
+          const key = document.createElement("div");
+          key.className = "key" + (black ? " black" : "");
+          key.dataset.note = note;
+
+          key.addEventListener("mousedown", () => {
+            key.classList.add("pressed");
+            sendNoteOn(note);
+          });
+
+          key.addEventListener("mouseup", () => {
+            key.classList.remove("pressed");
+            sendNoteOff(note);
+          });
+
+          key.addEventListener("mouseleave", () => {
+            if (key.classList.contains("pressed")) {
+              key.classList.remove("pressed");
+              sendNoteOff(note);
+            }
+          });
+
+          keyboard.appendChild(key);
+        });
+      }
+
+      // Computer keyboard support
+      const keyMap = {
+        a: 60,
+        w: 61,
+        s: 62,
+        e: 63,
+        d: 64,
+        f: 65,
+        t: 66,
+        g: 67,
+        y: 68,
+        h: 69,
+        u: 70,
+        j: 71,
+        k: 72,
+      };
+      const pressedKeys = new Set();
+
+      document.addEventListener("keydown", (e) => {
+        const note = keyMap[e.key.toLowerCase()];
+        if (note && !pressedKeys.has(e.key)) {
+          pressedKeys.add(e.key);
+          document
+            .querySelector(`[data-note="${note}"]`)
+            ?.classList.add("pressed");
+          sendNoteOn(note);
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        const note = keyMap[e.key.toLowerCase()];
+        if (note) {
+          pressedKeys.delete(e.key);
+          document
+            .querySelector(`[data-note="${note}"]`)
+            ?.classList.remove("pressed");
+          sendNoteOff(note);
+        }
+      });
+
+      // Init
+      buildKeyboard();
+      initMIDI();
+    </script>
+  </body>
+</html>

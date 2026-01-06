@@ -1,0 +1,285 @@
+Processing weact_h743 (platform: ststm32; board: weact_mini_h743vitx; framework: stm32cube)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/ststm32/weact_mini_h743vitx.html
+PLATFORM: ST STM32 (19.4.0) > WeAct Studio MiniSTM32H743VITX
+HARDWARE: STM32H743VIT6 480MHz, 512KB RAM, 2MB Flash
+DEBUG: Current (blackmagic) External (blackmagic, cmsis-dap, jlink, stlink)
+PACKAGES: 
+ - framework-stm32cubeh7 @ 1.12.1 
+ - tool-dfuutil @ 1.11.0 
+ - tool-ldscripts-ststm32 @ 0.2.0 
+ - toolchain-gccarmnoneeabi @ 1.70201.0 (7.2.1)
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 63 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- DaisySP
+Building in release mode
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_adc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_adc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_cec.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_comp.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_cordic.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_cortex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_crc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_crc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_cryp.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_cryp_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dac.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dac_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dcmi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dfsdm.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dfsdm_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dma.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dma2d.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dma_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dsi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_dts.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_eth.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_eth_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_exti.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_fdcan.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_flash.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_flash_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_fmac.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_gfxmmu.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_gpio.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_hash.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_hash_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_hcd.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_hrtim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_hsem.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_i2c.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_i2c_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_i2s.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_i2s_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_irda.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_iwdg.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_jpeg.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_lptim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_ltdc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_ltdc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_mdios.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_mdma.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_mmc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_mmc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_nand.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_nor.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_opamp.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_opamp_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_ospi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_otfdec.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_pcd.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_pcd_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_pssi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_pwr.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_pwr_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_qspi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_ramecc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rcc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rcc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rng.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rng_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rtc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_rtc_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sai.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sai_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sd.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sd_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sdio.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sdram.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_smartcard.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_smartcard_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_smbus.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_smbus_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_spdifrx.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_spi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_spi_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_sram.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_swpmi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_tim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_tim_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_uart.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_uart_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_usart.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_usart_ex.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_hal_wwdg.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_adc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_bdma.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_comp.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_cordic.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_crc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_crs.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_dac.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_delayblock.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_dma.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_dma2d.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_exti.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_fmac.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_fmc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_gpio.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_hrtim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_i2c.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_lptim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_lpuart.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_mdma.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_opamp.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_pwr.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_rcc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_rng.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_rtc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_sdmmc.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_spi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_swpmi.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_tim.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_usart.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_usb.o
+Compiling .pio\build\weact_h743\FrameworkHALDriver\Src\stm32h7xx_ll_utils.o
+Compiling .pio\build\weact_h743\src\audio_sai.o
+Compiling .pio\build\weact_h743\src\main.o
+Compiling .pio\build\weact_h743\src\system.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Control\adenv.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Control\adsr.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Control\line.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Control\phasor.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Control\line.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Dynamics\balance.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Dynamics\compressor.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Effects\bitcrush.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Effects\fold.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Effects\reverbsc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\allpass.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\atone.o
+In file included from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_rcc.h:27:0,
+                 from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_conf.h:251,
+                 from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal.h:29,
+                 from src\audio_sai.cpp:2:
+src\audio_sai.cpp: In function 'void AudioInit()':
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_rcc.h:2279:48: warning: conversion to void will not access object of type 'volatile uint32_t {aka volatile long unsigned int}'
+                                         UNUSED(tmpreg); \
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_def.h:70:27: note: in definition of macro 'UNUSED'
+ #define UNUSED(x) ((void)(x))    /* To avoid gcc/g++ warnings */
+                           ^
+src\audio_sai.cpp:75:3: note: in expansion of macro '__HAL_RCC_SAI1_CLK_ENABLE'
+   __HAL_RCC_SAI1_CLK_ENABLE();
+   ^~~~~~~~~~~~~~~~~~~~~~~~~
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_rcc.h:983:48: warning: conversion to void will not access object of type 'volatile uint32_t {aka volatile long unsigned int}'
+                                         UNUSED(tmpreg); \
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_def.h:70:27: note: in definition of macro 'UNUSED'
+ #define UNUSED(x) ((void)(x))    /* To avoid gcc/g++ warnings */
+                           ^
+src\audio_sai.cpp:76:3: note: in expansion of macro '__HAL_RCC_DMA2_CLK_ENABLE'
+   __HAL_RCC_DMA2_CLK_ENABLE();
+   ^~~~~~~~~~~~~~~~~~~~~~~~~
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_rcc.h:1460:48: warning: conversion to void will not access object of type 'volatile uint32_t {aka volatile long unsigned int}'
+                                         UNUSED(tmpreg); \
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_def.h:70:27: note: in definition of macro 'UNUSED'
+ #define UNUSED(x) ((void)(x))    /* To avoid gcc/g++ warnings */
+                           ^
+src\audio_sai.cpp:77:3: note: in expansion of macro '__HAL_RCC_GPIOE_CLK_ENABLE'
+   __HAL_RCC_GPIOE_CLK_ENABLE(); // Pins are here
+   ^~~~~~~~~~~~~~~~~~~~~~~~~~
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\biquad.o
+In file included from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_rcc.h:27:0,
+                 from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_conf.h:251,
+                 from C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal.h:29,
+                 from src\system.h:2,
+                 from src\system.cpp:1:
+src\system.cpp: In function 'void SystemClock_Config()':
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_pwr.h:285:14: warning: conversion to void will not access object of type 'volatile uint32_t {aka volatile long unsigned int}'
+       UNUSED(tmpreg);                                                          \
+C:\.platformio\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver\Inc/stm32h7xx_hal_def.h:70:27: note: in definition of macro 'UNUSED'
+ #define UNUSED(x) ((void)(x))    /* To avoid gcc/g++ warnings */
+                           ^
+src\system.cpp:48:3: note: in expansion of macro '__HAL_PWR_VOLTAGESCALING_CONFIG'
+   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src\system.cpp:42:28: warning: unused variable 'PeriphClkInitStruct' [-Wunused-variable]
+   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+                            ^~~~~~~~~~~~~~~~~~~
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\comb.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\mode.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\moogladder.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\nlfilt.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Filters\tone.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\PhysicalModeling\pluck.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Synthesis\blosc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Utility\jitter.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\DaisySP-LGPL\Utility\port.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Drums\analogbassdrum.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Drums\analogsnaredrum.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Drums\hihat.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Drums\synthbassdrum.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Drums\synthsnaredrum.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Dynamics\balance.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Dynamics\compressor.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Dynamics\crossfade.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Dynamics\limiter.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\autowah.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\bitcrush.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\chorus.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\decimator.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\flanger.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\fold.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\overdrive.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\phaser.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\reverbsc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\sampleratereducer.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\tremolo.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Effects\wavefolder.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\allpass.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\atone.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\biquad.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\comb.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\ladder.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\mode.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\moogladder.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\nlfilt.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\soap.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\svf.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Filters\tone.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Noise\clockednoise.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Noise\grainlet.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Noise\particle.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\KarplusString.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\drip.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\modalvoice.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\pluck.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\resonator.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\PhysicalModeling\stringvoice.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Sampling\granularplayer.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\blosc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\fm2.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\formantosc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\oscillator.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\oscillatorbank.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\variablesawosc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\variableshapeosc.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\vosim.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Synthesis\zoscillator.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Utility\dcblock.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Utility\jitter.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Utility\metro.o
+Compiling .pio\build\weact_h743\lib2da\DaisySP\Utility\port.o
+Compiling .pio\build\weact_h743\FrameworkCMSISDevice\gcc\startup_stm32h743xx.o
+Compiling .pio\build\weact_h743\FrameworkCMSISDevice\system_stm32h7xx.o
+Archiving .pio\build\weact_h743\libFrameworkCMSISDevice.a
+Archiving .pio\build\weact_h743\lib2da\libDaisySP.a
+Linking .pio\build\weact_h743\firmware.elf
+Checking size .pio\build\weact_h743\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [========  ]  75.7% (used 396836 bytes from 524288 bytes)
+Flash: [          ]   1.2% (used 26036 bytes from 2097152 bytes)
+Building .pio\build\weact_h743\firmware.bin
+Adding dfu suffix to firmware.bin
+dfu-suffix (dfu-util) 0.11
+
+Copyright 2011-2012 Stefan Schmidt, 2013-2020 Tormod Volden
+This program is Free Software and has ABSOLUTELY NO WARRANTY
+Please report bugs to http://sourceforge.net/p/dfu-util/tickets/
+
+Suffix successfully added to file
+========================= [SUCCESS] Took 11.04 seconds =========================

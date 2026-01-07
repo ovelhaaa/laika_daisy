@@ -34,6 +34,7 @@
         text-align: center;
         font-size: 2rem;
         background: linear-gradient(135deg, var(--accent), #ff44aa);
+        background-clip: text;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 10px;
@@ -111,7 +112,9 @@
         height: 8px;
         border-radius: 4px;
         background: #1a1a2e;
+        background: #1a1a2e;
         outline: none;
+        appearance: none;
         -webkit-appearance: none;
       }
 
@@ -210,20 +213,65 @@
     </style>
   </head>
   <body>
-    <h1>🎹 DaisySP Synth Controller</h1>
+    <h1>DaisySP Synth Controller</h1>
 
     <div id="status" class="status disconnected">🔴 No MIDI Device</div>
 
     <div class="container">
 
       <!-- Synth Mode -->
+      <!-- =================================================================== -->
+      <!-- SECTION: GLOBAL CONTROLS                                           -->
+      <!-- =================================================================== -->
+      
+      <!-- Master Output & Visualizer -->
       <div class="card" style="grid-column: 1 / -1;">
-        <h2>🎵 Synthesis Mode</h2>
-        <div class="synth-buttons" style="flex-wrap: wrap;">
-          <button class="synth-btn active" data-mode="0">🎹 Oscillator</button>
-          <button class="synth-btn" data-mode="1">🎸 Pluck</button>
-          <button class="synth-btn" data-mode="2">🎻 String</button>
-          <button class="synth-btn" data-mode="3">✨ StringVoice</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+           <h2 style="margin: 0;">Master Output</h2>
+           <div id="visualizer-status" style="font-size: 0.8em; color: var(--accent);">RMS: -inf dB</div>
+        </div>
+        
+        <canvas id="signalCanvas" style="width: 100%; height: 60px; background: #000; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px;"></canvas>
+
+        <div class="control-group">
+            <label>Master Volume <span class="value" id="masterVolVal">-6dB</span></label>
+            <input type="range" id="masterVol" min="0" max="127" value="100" data-cc="7" data-format="db" />
+        </div>
+      </div>
+      
+      <!-- Synth Mode -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>🎵 Synthesis Mode & Performance</h2>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+          <!-- Mode Selection -->
+          <div>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Synth Engine</p>
+            <div class="synth-buttons" style="flex-wrap: wrap;">
+              <button class="synth-btn active" data-mode="0">Oscillator</button>
+              <button class="synth-btn" data-mode="1">Pluck</button>
+              <button class="synth-btn" data-mode="2">String</button>
+              <button class="synth-btn" data-mode="3">StringVoice</button>
+              <button class="synth-btn" data-mode="4">FM</button>
+              <button class="synth-btn" data-mode="5">Wavetable</button>
+            </div>
+          </div>
+          <!-- Performance Controls -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <span style="font-size: 0.8rem; color: var(--text-dim);">Portamento</span>
+              <button class="synth-btn toggle-btn" data-cc="84" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+            </div>
+            <div class="control-group" style="margin-bottom: 15px;">
+              <label>Glide Time <span class="value" id="portaTimeVal">100ms</span></label>
+              <input type="range" id="portaTime" min="0" max="127" value="13" data-cc="5" data-format="portatime" />
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px;">Velocity Curve</p>
+            <div class="synth-buttons" style="flex-wrap: wrap; gap: 5px;">
+              <button class="synth-btn vel-curve-btn active" data-curve="0" data-cc="88" style="padding: 5px 10px;">Linear</button>
+              <button class="synth-btn vel-curve-btn" data-curve="1" data-cc="88" style="padding: 5px 10px;">Exp</button>
+              <button class="synth-btn vel-curve-btn" data-curve="2" data-cc="88" style="padding: 5px 10px;">Log</button>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -247,98 +295,269 @@
             <input type="range" id="arpOct" min="0" max="127" value="0" data-cc="112" data-format="octaves" />
           </div>
           <div>
-            <label style="margin-bottom: 8px; display: block;">Direction (CC111)</label>
+            <label style="margin-bottom: 8px; display: block;">Direction</label>
             <div class="synth-buttons" style="flex-wrap: wrap; gap: 5px;">
-              <button class="synth-btn arp-dir-btn active" data-dir="0" data-cc="111" style="padding: 5px 8px;">↑ Up</button>
-              <button class="synth-btn arp-dir-btn" data-dir="1" data-cc="111" style="padding: 5px 8px;">↓ Down</button>
-              <button class="synth-btn arp-dir-btn" data-dir="2" data-cc="111" style="padding: 5px 8px;">↕ UpDn</button>
-              <button class="synth-btn arp-dir-btn" data-dir="3" data-cc="111" style="padding: 5px 8px;">🎲 Rnd</button>
+              <button class="synth-btn arp-dir-btn active" data-dir="0" data-cc="111" style="padding: 5px 8px;">Up</button>
+              <button class="synth-btn arp-dir-btn" data-dir="1" data-cc="111" style="padding: 5px 8px;">Down</button>
+              <button class="synth-btn arp-dir-btn" data-dir="2" data-cc="111" style="padding: 5px 8px;">Up&Down</button>
+              <button class="synth-btn arp-dir-btn" data-dir="3" data-cc="111" style="padding: 5px 8px;">Random</button>
             </div>
           </div>
         </div>
       </div>
-      <!-- Oscillator Voice Controls -->
+
+      <!-- =================================================================== -->
+      <!-- SECTION: VOICE ENGINES (grouped by synth type)                     -->
+      <!-- =================================================================== -->
+      
+      <!-- Oscillator + ADSR (most common) -->
       <div class="card" style="grid-column: 1 / -1;">
-        <h2>🎹 Oscillator Voice</h2>
-        <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 15px;">Waveform (CC70)</p>
-        <div class="synth-buttons" style="flex-wrap: wrap; margin-bottom: 15px;">
-          <button class="synth-btn waveform-btn" data-wf="0">SIN</button>
-          <button class="synth-btn waveform-btn" data-wf="1">TRI</button>
-          <button class="synth-btn waveform-btn active" data-wf="2">SAW</button>
-          <button class="synth-btn waveform-btn" data-wf="3">RAMP</button>
-          <button class="synth-btn waveform-btn" data-wf="4">SQ</button>
-          <button class="synth-btn waveform-btn" data-wf="5">pTRI</button>
-          <button class="synth-btn waveform-btn" data-wf="6">pSAW</button>
-          <button class="synth-btn waveform-btn" data-wf="7">pSQ</button>
-        </div>
-        <div class="control-group">
-          <label>Pulse Width (CC71) <span class="value" id="pwVal">64</span></label>
-          <input type="range" id="pulseWidth" min="0" max="127" value="64" data-cc="71" />
-        </div>
-        <div class="control-group">
-          <label>Osc2 Detune (CC79) <span class="value" id="detuneVal">13</span></label>
-          <input type="range" id="osc2Detune" min="0" max="127" value="13" data-cc="79" />
-        </div>
-        <div class="control-group">
-          <label>Osc2 Mix (CC80) <span class="value" id="osc2MixVal">64</span></label>
-          <input type="range" id="osc2Mix" min="0" max="127" value="64" data-cc="80" />
+        <h2>Oscillator Voice</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+          <!-- Waveform & Osc2 -->
+          <div>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Waveform</p>
+            <div class="synth-buttons" style="flex-wrap: wrap; margin-bottom: 15px;">
+              <button class="synth-btn waveform-btn" data-wf="0">SIN</button>
+              <button class="synth-btn waveform-btn" data-wf="1">TRI</button>
+              <button class="synth-btn waveform-btn active" data-wf="2">SAW</button>
+              <button class="synth-btn waveform-btn" data-wf="3">RAMP</button>
+              <button class="synth-btn waveform-btn" data-wf="4">SQ</button>
+              <button class="synth-btn waveform-btn" data-wf="5">pTRI</button>
+              <button class="synth-btn waveform-btn" data-wf="6">pSAW</button>
+              <button class="synth-btn waveform-btn" data-wf="7">pSQ</button>
+            </div>
+            <div class="control-group">
+              <label>Pulse Width <span class="value" id="pwVal">64</span></label>
+              <input type="range" id="pulseWidth" min="0" max="127" value="64" data-cc="71" />
+            </div>
+            <div class="control-group">
+              <label>Osc2 Detune <span class="value" id="detuneVal">13</span></label>
+              <input type="range" id="osc2Detune" min="0" max="127" value="13" data-cc="79" />
+            </div>
+            <div class="control-group">
+              <label>Osc2 Mix <span class="value" id="osc2MixVal">64</span></label>
+              <input type="range" id="osc2Mix" min="0" max="127" value="64" data-cc="80" />
+            </div>
+          </div>
+          <!-- ADSR Envelope -->
+          <div>
+            <p style="font-size: 0.8rem; color: var(--accent); margin-bottom: 10px;">ADSR Envelope</p>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+              <div class="control-group">
+                <label>Attack <span class="value" id="adsrAVal">10ms</span></label>
+                <input type="range" id="adsrAttack" min="0" max="127" value="1" data-cc="24" data-format="time2s" />
+              </div>
+              <div class="control-group">
+                <label>Decay <span class="value" id="adsrDVal">200ms</span></label>
+                <input type="range" id="adsrDecay" min="0" max="127" value="13" data-cc="25" data-format="time2s" />
+              </div>
+              <div class="control-group">
+                <label>Sustain <span class="value" id="adsrSVal">70%</span></label>
+                <input type="range" id="adsrSustain" min="0" max="127" value="89" data-cc="26" data-format="percent100" />
+              </div>
+              <div class="control-group">
+                <label>Release <span class="value" id="adsrRVal">300ms</span></label>
+                <input type="range" id="adsrRelease" min="0" max="127" value="13" data-cc="27" data-format="time3s" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
-      <!-- Pluck Voice Controls -->
+      <!-- Physical Modeling Voices (Pluck, String, StringVoice) -->
       <div class="card">
-        <h2>🎸 Pluck Voice</h2>
+        <h2>Pluck</h2>
         <div class="control-group">
-          <label>Decay (CC72) <span class="value" id="pluckDecayVal">64</span></label>
+          <label>Decay <span class="value" id="pluckDecayVal">64</span></label>
           <input type="range" id="pluckDecay" min="0" max="127" value="64" data-cc="72" />
         </div>
         <div class="control-group">
-          <label>Damp (CC73) <span class="value" id="pluckDampVal">64</span></label>
+          <label>Damp <span class="value" id="pluckDampVal">64</span></label>
           <input type="range" id="pluckDamp" min="0" max="127" value="64" data-cc="73" />
         </div>
       </div>
       
-      <!-- String Voice Controls -->
       <div class="card">
-        <h2>🎻 String Voice</h2>
+        <h2>String</h2>
         <div class="control-group">
-          <label>Brightness (CC75) <span class="value" id="strBrightVal">64</span></label>
+          <label>Brightness <span class="value" id="strBrightVal">64</span></label>
           <input type="range" id="strBright" min="0" max="127" value="64" data-cc="75" />
         </div>
         <div class="control-group">
-          <label>Damping (CC77) <span class="value" id="strDampVal">89</span></label>
+          <label>Damping <span class="value" id="strDampVal">89</span></label>
           <input type="range" id="strDamp" min="0" max="127" value="89" data-cc="77" />
         </div>
         <div class="control-group">
-          <label>NonLinearity (CC78) <span class="value" id="strNLVal">64</span></label>
+          <label>NonLinearity <span class="value" id="strNLVal">64</span></label>
           <input type="range" id="strNL" min="0" max="127" value="64" data-cc="78" />
         </div>
       </div>
       
-      <!-- StringVoice Controls -->
       <div class="card">
-        <h2>✨ StringVoice</h2>
+        <h2>StringVoice</h2>
         <div class="control-group">
-          <label>Brightness (CC102) <span class="value" id="svBrightVal">64</span></label>
+          <label>Brightness <span class="value" id="svBrightVal">64</span></label>
           <input type="range" id="svBright" min="0" max="127" value="64" data-cc="102" />
         </div>
         <div class="control-group">
-          <label>Damping (CC103) <span class="value" id="svDampVal">64</span></label>
+          <label>Damping <span class="value" id="svDampVal">64</span></label>
           <input type="range" id="svDamp" min="0" max="127" value="64" data-cc="103" />
         </div>
         <div class="control-group">
-          <label>Structure (CC104) <span class="value" id="svStructVal">51</span></label>
+          <label>Structure <span class="value" id="svStructVal">51</span></label>
           <input type="range" id="svStruct" min="0" max="127" value="51" data-cc="104" />
         </div>
         <div class="control-group">
-          <label>Accent (CC105) <span class="value" id="svAccentVal">102</span></label>
+          <label>Accent <span class="value" id="svAccentVal">102</span></label>
           <input type="range" id="svAccent" min="0" max="127" value="102" data-cc="105" />
         </div>
       </div>
       
+      <!-- FM + Wavetable (New Synth Engines) -->
+      <div class="card">
+        <h2>FM Synth</h2>
+        <div class="control-group">
+          <label>Ratio <span class="value" id="fmRatioVal">2.0</span></label>
+          <input type="range" id="fmRatio" min="0" max="127" value="26" data-cc="89" data-format="fmratio" />
+        </div>
+        <div class="control-group">
+          <label>Index <span class="value" id="fmIndexVal">1.0</span></label>
+          <input type="range" id="fmIndex" min="0" max="127" value="13" data-cc="90" data-format="fmindex" />
+        </div>
+        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">Uses ADSR envelope</p>
+      </div>
+      
+      <div class="card">
+        <h2>Wavetable</h2>
+        <div class="control-group">
+          <label>Waveshape <span class="value" id="waveShapeVal">50%</span></label>
+          <input type="range" id="waveShape" min="0" max="127" value="64" data-cc="94" data-format="percent100" />
+        </div>
+        <div class="control-group">
+          <label>Pulse Width <span class="value" id="varsawPwVal">0%</span></label>
+          <input type="range" id="varsawPw" min="0" max="127" value="64" data-cc="96" data-format="pwbipolar" />
+        </div>
+        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">Variable Saw: Notch ↔ Slope</p>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SECTION: FILTERS (before effects in signal chain)                  -->
+      <!-- =================================================================== -->
+      
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+          <h2 style="margin: 0;">🔊 SVF Filter</h2>
+          <button class="synth-btn toggle-btn active" data-cc="64" data-state="1" style="padding: 6px 12px; min-width: auto;">✓</button>
+        </div>
+        <div class="control-group">
+          <label>Cutoff <span class="value" id="cutoffVal">64</span></label>
+          <input type="range" id="cutoff" min="0" max="127" value="64" data-cc="1" />
+        </div>
+        <div class="control-group">
+          <label>Resonance <span class="value" id="resVal">64</span></label>
+          <input type="range" id="resonance" min="0" max="127" value="64" data-cc="74" />
+        </div>
+        <div class="control-group">
+          <label>Env Amt <span class="value" id="envAmtVal">64</span></label>
+          <input type="range" id="envAmt" min="0" max="127" value="64" data-cc="30" />
+        </div>
+        <div class="control-group">
+          <label>LFO Amt <span class="value" id="lfoAmtVal">0</span></label>
+          <input type="range" id="lfoAmt" min="0" max="127" value="0" data-cc="31" />
+        </div>
+        <div class="control-group">
+          <label>LFO Rate <span class="value" id="lfoVal">5</span></label>
+          <input type="range" id="lfoRate" min="0" max="127" value="5" data-cc="76" />
+        </div>
+      </div>
+      
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+          <h2 style="margin: 0;">🎚️ Moog Ladder</h2>
+          <button class="synth-btn toggle-btn" data-cc="65" data-state="0" style="padding: 6px 12px; min-width: auto;">✗</button>
+        </div>
+        <div class="control-group">
+          <label>Cutoff <span class="value" id="moogCutoffVal">64</span></label>
+          <input type="range" id="moogCutoff" min="0" max="127" value="64" data-cc="22" />
+        </div>
+        <div class="control-group">
+          <label>Resonance <span class="value" id="moogResVal">38</span></label>
+          <input type="range" id="moogRes" min="0" max="127" value="38" data-cc="23" />
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SECTION: EFFECTS                                                   -->
+      <!-- =================================================================== -->
+      
       <div class="card" style="grid-column: 1 / -1;">
-        <h2>✨ Effects</h2>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+        <h2>Effects</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px;">
+          
+           <!-- Overdrive -->
+           <div>
+             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+               <span>Overdrive</span>
+               <button class="synth-btn toggle-btn" data-cc="14" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+             </div>
+            <label style="font-size: 0.7rem;">Drive</label>
+            <input type="range" id="driveAmount" min="0" max="127" value="64" data-cc="15" data-format="percent100" />
+          </div>
+
+           <!-- Bitcrusher -->
+           <div>
+             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+               <span>Bitcrush</span>
+               <button class="synth-btn toggle-btn" data-cc="35" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+             </div>
+            <label style="font-size: 0.7rem;">Bits</label>
+            <input type="range" id="bitAmount" min="0" max="127" value="0" data-cc="36" data-format="percent100" />
+            <label style="font-size: 0.7rem;">Sample</label>
+            <input type="range" id="sampleAmount" min="0" max="127" value="0" data-cc="37" data-format="percent100" />
+          </div>
+
+          <!-- Compressor -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Comp</span>
+              <button class="synth-btn toggle-btn" data-cc="40" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+            </div>
+            <label style="font-size: 0.7rem;">Thresh</label>
+            <input type="range" id="compThresh" min="0" max="127" value="95" data-cc="41" data-format="db" />
+            <label style="font-size: 0.7rem;">Ratio</label>
+            <input type="range" id="compRatio" min="0" max="127" value="10" data-cc="42" data-format="ratio" />
+            <label style="font-size: 0.7rem;">Attack</label>
+            <input type="range" id="compAttack" min="0" max="127" value="13" data-cc="43" data-format="ms_attack" />
+            <label style="font-size: 0.7rem;">Release</label>
+            <input type="range" id="compRelease" min="0" max="127" value="13" data-cc="44" data-format="ms_release" />
+          </div>
+
+          <!-- Tremolo -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Tremolo</span>
+              <button class="synth-btn toggle-btn" data-cc="123" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+            </div>
+            <label style="font-size: 0.7rem;">Freq</label>
+            <input type="range" id="tremoloFreq" min="0" max="127" value="32" data-cc="124" data-format="tremolofreq" />
+            <label style="font-size: 0.7rem;">Depth</label>
+            <input type="range" id="tremoloDepth" min="0" max="127" value="64" data-cc="125" data-format="percent100" />
+          </div>
+
+          <!-- Flanger -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>Flanger</span>
+              <button class="synth-btn toggle-btn" data-cc="17" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+            </div>
+            <label style="font-size: 0.7rem;">Freq</label>
+            <input type="range" id="flangerFreq" min="0" max="127" value="13" data-cc="18" data-format="flangerfreq" />
+            <label style="font-size: 0.7rem;">Depth</label>
+            <input type="range" id="flangerDepth" min="0" max="127" value="64" data-cc="19" data-format="percent100" />
+            <label style="font-size: 0.7rem;">FBack</label>
+            <input type="range" id="flangerFb" min="0" max="127" value="64" data-cc="20" data-format="percent100" />
+          </div>
           
           <!-- Chorus -->
           <div>
@@ -362,7 +581,7 @@
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
               <span>Phaser</span>
-              <button class="synth-btn toggle-btn" data-cc="67" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+              <button class="synth-btn toggle-btn" data-cc="67" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
             </div>
             <label style="font-size: 0.7rem;">Mix</label>
             <input type="range" id="phaser" min="0" max="127" value="64" data-cc="95" />
@@ -394,7 +613,7 @@
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
               <span>Delay</span>
-              <button class="synth-btn toggle-btn" data-cc="69" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+              <button class="synth-btn toggle-btn" data-cc="69" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
             </div>
             <label style="font-size: 0.7rem;">Time</label>
             <input type="range" id="delayTime" min="0" max="127" value="32" data-cc="85" />
@@ -404,46 +623,6 @@
             <input type="range" id="delayMix" min="0" max="127" value="38" data-cc="87" />
           </div>
           
-        </div>
-      </div>
-
-      <!-- SVF Filter -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-          <h2 style="margin: 0;">🔊 SVF Filter</h2>
-          <button class="synth-btn toggle-btn active" data-cc="64" data-state="1" style="padding: 6px 12px; min-width: auto;">✓</button>
-        </div>
-        <div class="control-group">
-          <label>Cutoff (CC1) <span class="value" id="cutoffVal">64</span></label>
-          <input type="range" id="cutoff" min="0" max="127" value="64" data-cc="1" />
-        </div>
-        <div class="control-group">
-          <label>Resonance (CC74) <span class="value" id="resVal">64</span></label>
-          <input type="range" id="resonance" min="0" max="127" value="64" data-cc="74" />
-        </div>
-        <div class="control-group">
-          <label>Drive (CC21) <span class="value" id="driveVal">25</span></label>
-          <input type="range" id="drive" min="0" max="127" value="25" data-cc="21" />
-        </div>
-        <div class="control-group">
-          <label>LFO Rate (CC76) <span class="value" id="lfoVal">5</span></label>
-          <input type="range" id="lfoRate" min="0" max="127" value="5" data-cc="76" />
-        </div>
-      </div>
-      
-      <!-- Moog Filter -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-          <h2 style="margin: 0;">🎚️ Moog Ladder</h2>
-          <button class="synth-btn toggle-btn" data-cc="65" data-state="0" style="padding: 6px 12px; min-width: auto;">✗</button>
-        </div>
-        <div class="control-group">
-          <label>Cutoff (CC22) <span class="value" id="moogCutoffVal">64</span></label>
-          <input type="range" id="moogCutoff" min="0" max="127" value="64" data-cc="22" />
-        </div>
-        <div class="control-group">
-          <label>Resonance (CC23) <span class="value" id="moogResVal">38</span></label>
-          <input type="range" id="moogRes" min="0" max="127" value="38" data-cc="23" />
         </div>
       </div>
 
@@ -467,14 +646,24 @@
           <div>
             <label style="margin-bottom: 8px; display: block;">Master Volume (CC7)</label>
             <input type="range" id="masterVolume" min="0" max="127" value="42" data-cc="7" style="margin-bottom: 5px;" />
-            <div style="font-size: 0.7rem; color: var(--text-dim);">⚠️ Cuidado com valores altos!</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="font-size: 0.7rem; color: var(--text-dim);">⚠️ Cuidado!</div>
+              <button class="synth-btn" id="panicBtn" style="background: #ff4444; color: white; border: none; padding: 4px 10px; font-size: 0.8rem;">🛑 Panic</button>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Keyboard -->
       <div class="card" style="grid-column: 1 / -1">
-        <h2>🎹 Keyboard</h2>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+      <!-- Keyboard -->
+      <div class="card" style="grid-column: 1 / -1">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+           <h2 style="margin: 0;">Keyboard</h2>
+           <button class="synth-btn toggle-btn active" id="keyboardToggle" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+           <span style="font-size: 0.75rem; color: var(--text-dim);">Disable if using external MIDI controller</span>
+        </div>
         <div class="keyboard" id="keyboard"></div>
       </div>
     </div>
@@ -484,11 +673,22 @@
       let midiInput = null;
       let midiAccess = null;
       const channel = 0; // MIDI Channel 1
+      let keyboardEnabled = true; // Virtual keyboard toggle
 
       // Initialize Web MIDI
       async function initMIDI() {
         try {
           midiAccess = await navigator.requestMIDIAccess();
+          updateStatus(true);
+          
+          // Panic Button
+          document.getElementById('panicBtn').addEventListener('click', () => {
+            if (midiOutput) {
+              midiOutput.send([0xB0, 81, 127]); 
+              console.log('Sent Panic (CC 81)');
+            }
+          });
+
           const outputSelect = document.getElementById("midiOutput");
           const inputSelect = document.getElementById("midiInput");
 
@@ -538,8 +738,16 @@
             }
           });
         } catch (err) {
-          console.error("Web MIDI not supported:", err);
-          updateStatus(false, "Web MIDI not supported");
+          console.error("Web MIDI initialization error:", err);
+          let msg = "Web MIDI Error";
+          if (err.name === "SecurityError") {
+            msg = "MIDI Access Denied (Security)";
+          } else if (err.name === "NotSupportedError") {
+            msg = "Web MIDI Not Supported in this browser";
+          } else {
+            msg = "MIDI Error: " + err.message;
+          }
+          updateStatus(false, msg);
         }
       }
       
@@ -563,7 +771,7 @@
 
       function updateStatus(connected, message) {
         const status = document.getElementById("status");
-        if (connected) {
+        if (connected && midiOutput) {
           status.className = "status connected";
           status.textContent = "🟢 Connected: " + midiOutput.name;
         } else {
@@ -585,7 +793,10 @@
         }
       }
 
-      function sendNoteOn(note, velocity = 100) {
+       function sendNoteOn(note, velocity = 100) {
+        // Trigger visualizer
+        simulatedVolume = Math.min(simulatedVolume + (velocity / 127) * 0.5, 1.0);
+        
         if (midiOutput) {
           midiOutput.send([0x90 | channel, note, velocity]);
         }
@@ -604,8 +815,61 @@
             return Math.round(60 + (value * 180 / 127));  // 60-240 BPM
           case 'percent':
             return Math.round(10 + (value * 90 / 127)) + '%';  // 10-100%
+          case 'percent100':
+            return Math.round(value * 100 / 127) + '%';  // 0-100%
           case 'octaves':
             return 1 + Math.floor(value * 3 / 127);  // 1-4
+          case 'time2s': {
+            // 0.001 + val * 1.999 (0.001-2.0s)
+            const time = 1 + (value / 127) * 1999;  // 1-2000ms
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
+          }
+          case 'time3s': {
+            // 0.001 + val * 2.999 (0.001-3.0s) 
+            const time = 1 + (value / 127) * 2999;  // 1-3000ms
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
+          }
+          case 'fmratio': {
+            // 0.5 + val * 7.5 (0.5-8.0)
+            return (0.5 + (value / 127) * 7.5).toFixed(1);
+          }
+          case 'fmindex': {
+            // 0 - 10
+            return (value * 10 / 127).toFixed(1);
+          }
+          case 'portatime': {
+            // 0.01 + val * 0.99 (10ms-1000ms)
+            const time = 10 + (value / 127) * 990;
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(2) + 's';
+          }
+          case 'pwbipolar': {
+            // -100% to +100% (0=center)
+            const pw = Math.round((value / 127) * 200 - 100);
+            return (pw >= 0 ? '+' : '') + pw + '%';
+          }
+          case 'tremolofreq':
+            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
+          case 'flangerfreq':
+            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
+          case 'db':
+            // 0 to -80 dB
+            const db = Math.round(-80 + (value / 127) * 80);
+            return db + 'dB';
+          case 'ratio':
+            // 1:1 to 40:1
+            return (1.0 + (value / 127) * 39.0).toFixed(1) + ':1';
+          case 'ms_attack':
+             // 1ms to 500ms
+             return Math.round(1 + (value / 127) * 499) + 'ms';
+          case 'ms_release':
+             // 1ms to 2000ms
+             return Math.round(1 + (value / 127) * 1999) + 'ms';
+          case 'tremolofreq':
+            // 0.5 - 20 Hz
+            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
+          case 'flangerfreq':
+            // 0.1 - 5.0 Hz
+            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
           default:
             return value;
         }
@@ -632,6 +896,17 @@
           document.querySelectorAll(".synth-btn[data-mode]").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
           sendProgramChange(parseInt(btn.dataset.mode));
+        });
+      });
+      
+      // Setup velocity curve buttons (exclusive selection)
+      document.querySelectorAll(".vel-curve-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".vel-curve-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const cc = parseInt(btn.dataset.cc);
+          const curveValue = parseInt(btn.dataset.curve) * 42; // 0, 42, 84 for 0, 1, 2
+          sendCC(cc, curveValue);
         });
       });
       
@@ -694,16 +969,19 @@
           key.dataset.note = note;
 
           key.addEventListener("mousedown", () => {
+            if (!keyboardEnabled) return;
             key.classList.add("pressed");
             sendNoteOn(note);
           });
 
           key.addEventListener("mouseup", () => {
+            if (!keyboardEnabled) return;
             key.classList.remove("pressed");
             sendNoteOff(note);
           });
 
           key.addEventListener("mouseleave", () => {
+            if (!keyboardEnabled) return;
             if (key.classList.contains("pressed")) {
               key.classList.remove("pressed");
               sendNoteOff(note);
@@ -733,6 +1011,7 @@
       const pressedKeys = new Set();
 
       document.addEventListener("keydown", (e) => {
+        if (!keyboardEnabled) return;
         const note = keyMap[e.key.toLowerCase()];
         if (note && !pressedKeys.has(e.key)) {
           pressedKeys.add(e.key);
@@ -744,6 +1023,7 @@
       });
 
       document.addEventListener("keyup", (e) => {
+        if (!keyboardEnabled) return;
         const note = keyMap[e.key.toLowerCase()];
         if (note) {
           pressedKeys.delete(e.key);
@@ -754,9 +1034,82 @@
         }
       });
 
+      // Visualizer State
+      let audioContext, analyser, source;
+      let simulatedVolume = 0;
+      let visualizerRunning = true;
+      const canvas = document.getElementById('signalCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      function resizeCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // Visualization Loop
+      function drawVisualizer() {
+        if (!visualizerRunning) return;
+        requestAnimationFrame(drawVisualizer);
+        
+        ctx.fillStyle = '#0a0a0f'; // BG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Simulate decay
+        simulatedVolume *= 0.92;
+        if (simulatedVolume < 0.001) simulatedVolume = 0;
+        
+        // Draw Bars
+        const bars = 30;
+        const barWidth = canvas.width / bars;
+        
+        // Gradient
+        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        gradient.addColorStop(0, '#44ff88'); // Green
+        gradient.addColorStop(0.6, '#ffee00'); // Yellow
+        gradient.addColorStop(1, '#ff4466'); // Red
+
+        ctx.fillStyle = gradient;
+
+        for (let i = 0; i < bars; i++) {
+           // Create a "wave" effect based on simulated volume
+           let h = simulatedVolume * canvas.height;
+           
+           // Add some randomness/noise to make it look active
+           if (simulatedVolume > 0.01) {
+               h *= (0.8 + Math.random() * 0.4);
+           }
+           
+           // Middle bars higher
+           const centerDist = Math.abs(i - bars / 2) / (bars / 2); // 0 at center, 1 at edges
+           h *= (1.0 - centerDist * 0.5); 
+
+           ctx.fillRect(i * barWidth + 1, canvas.height - h, barWidth - 2, h);
+        }
+        
+        // Update text status rarely to save DOM updates
+        if (Math.random() < 0.1) {
+             const db = simulatedVolume > 0 ? 20 * Math.log10(simulatedVolume) : -100;
+             const dbStr = db < -90 ? "-inf" : db.toFixed(1);
+             document.getElementById('visualizer-status').innerText = `RMS: ${dbStr} dB`;
+        }
+      }
+      
+      // Start loop
+      drawVisualizer();
+
       // Init
       buildKeyboard();
       initMIDI();
+      
+      // Keyboard toggle button handler
+      document.getElementById('keyboardToggle').addEventListener('click', function() {
+        keyboardEnabled = !keyboardEnabled;
+        this.textContent = keyboardEnabled ? '✓' : '✗';
+        this.classList.toggle('active', keyboardEnabled);
+        document.getElementById('keyboard').style.opacity = keyboardEnabled ? '1' : '0.4';
+      });
     </script>
   </body>
 </html>

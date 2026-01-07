@@ -35,37 +35,27 @@ extern "C" void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
 
 void AudioInit() {
   // 1. Clock Configuration for SAI1
-  // We need 48kHz. Using PLL3 is common for Audio.
-  // Input is usually HSE (25MHz on WeAct).
+  // Target: 48kHz * 256 = 12.288 MHz (exact for I2S MCLK)
+  // HSE = 25 MHz on WeAct board
+  //
+  // PLL3 Configuration for 12.288 MHz:
+  // - M = 25 (25 MHz / 25 = 1 MHz input to PLL)
+  // - N = 196 + fractional (1 MHz * 196.608 = 196.608 MHz VCO)
+  // - Q = 16 (196.608 MHz / 16 = 12.288 MHz)
+  //
+  // Fractional part: 0.608 * 8192 = 4980 (PLL3FRACN value)
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SAI1;
-  // PLL3: Input 25M / 5 (M) = 5M
-  // 5M * 49 (N) = 245M (VCO)
-  // 245M / 2 (P) = 122.5M
-  // 245M / 20 (Q) = 12.288M (Approx for 48k: 12.288M / 256 = 48000)
-  // Actually for pure 48k: 12.288MHz is target.
-  // Let's rely on relatively standard CubeMX values or approximate.
-
-  // A more precise setup for 48kHz * 256 = 12.288MHz
-  // 25MHz source.
-  // 25 / 25 * 192 (N) = 192MHz.
-  // 192 / 16 (P) = 12MHz? No.
-  // Try: 25MHz / 5 = 5MHz.
-  // 5 * 157 = 785.
-  // 785 / 64 = ... roughly 12.26
-
-  // Let's blindly try a "good enough" config or check if HSI is source.
-  // Assuming HSE 25MHz.
   PeriphClkInitStruct.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLL3;
-  PeriphClkInitStruct.PLL3.PLL3M = 5;
-  PeriphClkInitStruct.PLL3.PLL3N = 49;
-  PeriphClkInitStruct.PLL3.PLL3P = 2; // Unused for SAI1 Q usually?
-  PeriphClkInitStruct.PLL3.PLL3Q =
-      20; // 25/5=5 * 49 = 245. 245/20 = 12.25 MHz. (Close to 12.288)
-  PeriphClkInitStruct.PLL3.PLL3R = 2;
-  PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
-  PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
-  PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
+  PeriphClkInitStruct.PLL3.PLL3M = 25;  // 25 MHz / 25 = 1 MHz
+  PeriphClkInitStruct.PLL3.PLL3N = 196; // Integer part: 196
+  PeriphClkInitStruct.PLL3.PLL3P = 2;   // Not used for SAI1
+  PeriphClkInitStruct.PLL3.PLL3Q = 16;  // 196.608 MHz / 16 = 12.288 MHz
+  PeriphClkInitStruct.PLL3.PLL3R = 2;   // Not used
+  PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_0; // 1-2 MHz input range
+  PeriphClkInitStruct.PLL3.PLL3VCOSEL =
+      RCC_PLL3VCOMEDIUM;                     // Medium VCO for lower freq
+  PeriphClkInitStruct.PLL3.PLL3FRACN = 4980; // Fractional: 0.608 * 8192
 
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK) {
     // Error

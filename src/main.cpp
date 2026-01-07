@@ -1,57 +1,55 @@
+#include "main.h"
+#include "FastMath.h"
+#include "Voice.h" // Includes SynthMode and SynthVoice
 #include "audio_sai.h"
 #include "daisysp-lgpl.h" // Includes ReverbSc, Pluck
 #include "daisysp.h"
 #include "stm32h7xx_hal.h"
 #include "system.h"
+#include <math.h>
 #include <stdlib.h>
 #include <tusb.h>
 
 using namespace daisysp;
 
-#define SAMPLE_RATE 48000
-#define NUM_VOICES 4
-#define PLUCK_BUF_SIZE 256
+// =============================================================================
+// GLOBAL VARIABLES & OBJECTS
+// =============================================================================
 
-// Synthesis engine types (selectable via MIDI Program Change)
-enum SynthMode {
-  SYNTH_OSC = 0,         // Subtractive oscillator + ADSR
-  SYNTH_PLUCK = 1,       // Simple Karplus-Strong pluck
-  SYNTH_STRING = 2,      // Karplus-Strong with damping/brightness
-  SYNTH_STRINGVOICE = 3, // Extended KS with accent/structure (Rings-style)
-};
+// System
+const int SAMPLE_RATE = 48000;
+const int NUM_VOICES = 4;
 
+// Audio Buffer (for USB)
+// 48 samples * 2 channels * 2 bytes/sample = 192 bytes per packet
+// We need enough buffer for jitter. 1ms at 48k = 48 samples.
+// TinyUSB usually handles one SOF (1ms) per transfer.
+// Let's use a reasonable block size.
+#define AUDIO_BLOCK_SIZE 48
+extern int32_t audio_tx_buf[2 * AUDIO_BLOCK_SIZE]; // Stereo buffer
+extern volatile uint8_t req_fill_first_half;
+extern volatile uint8_t req_fill_second_half;
+
+// Synth Mode
 volatile SynthMode synth_mode = SYNTH_OSC;
 
-// Voice structure for polyphony
-struct Voice {
-  // Synthesis engines
-  Oscillator osc;
-  Oscillator osc2; // Second oscillator for unison/detune
-  Pluck pluck;
-  float pluck_buf[PLUCK_BUF_SIZE];
-  String string;
-  StringVoice stringVoice;
-
-  // Envelope and state
-  Adsr env;
-  bool gate;
-  bool trig;
-  uint8_t note;
-  float velocity;
-  uint32_t age;
-};
-
-Voice voices[NUM_VOICES];
-uint32_t voice_counter = 0;
-
-Oscillator lfw;  // Shared LFO for filter sweep
-Svf filter;      // SVF (State Variable Filter)
-MoogLadder moog; // Moog Ladder Filter
+// Voices
+// Voices
+SynthVoice voices[NUM_VOICES]; // Using new class
+int voice_counter = 0;         // For LRU allocation
+Oscillator lfw;                // Shared LFO for filter sweep
+// Svf filter;                 // REMOVED: Now per-voice (SynthVoice::svf)
+MoogLadder moog; // Moog Ladder Filter (Master effect)
 
 // Effects chain
 Chorus chorus;
 Phaser phaser;
 ReverbSc reverb;
+Tremolo tremolo;       // NEW: Amplitude modulation
+Flanger flanger;       // NEW: Flanging effect
+Overdrive overdrive;   // NEW: Distortion/saturation
+Decimator bitcrusher;  // NEW: Downsample/Bitcrush
+Compressor compressor; // NEW: Dynamics compression
 
 // Stereo Delay - buffers in RAM_D2 (~667ms max at 48kHz)
 #define DELAY_MAX_SAMPLES 32000
@@ -61,7 +59,8 @@ size_t delay_write_ptr = 0;
 float delay_frac = 0.0f;
 
 // Enable/disable toggles (controlled via MIDI CC 64-69)
-volatile bool svf_enabled = true;
+volatile bool svf_enabled =
+    true; // Still used to enable/disable per-voice filters?
 volatile bool moog_enabled = false;
 volatile bool chorus_enabled = true;
 volatile bool phaser_enabled = false;
@@ -94,10 +93,43 @@ volatile float phaser_feedback = 0.5f;  // Feedback 0-1
 volatile float reverb_feedback = 0.9f;  // Reverb time (0-1)
 volatile float reverb_lpfreq = 8000.0f; // LP filter freq (200-16000 Hz)
 
-// SVF Filter parameters
-volatile float filter_cutoff = 0.5f;
-volatile float filter_drive = 0.2f;
-volatile float lfo_rate = 0.2f;
+// === NEW: Tremolo parameters ===
+volatile bool tremolo_enabled = false;
+volatile float tremolo_freq = 5.0f;  // LFO freq in Hz (0.5-20)
+volatile float tremolo_depth = 0.5f; // Depth 0-1
+
+// === NEW: Flanger parameters ===
+volatile bool flanger_enabled = false;
+volatile float flanger_freq = 0.5f;     // LFO freq in Hz (0.1-5)
+volatile float flanger_depth = 0.5f;    // Depth 0-1
+volatile float flanger_feedback = 0.5f; // Feedback 0-1
+
+// === NEW: Overdrive parameters ===
+volatile bool overdrive_enabled = false;
+volatile float overdrive_drive = 0.5f; // Drive amount 0-1
+
+// === NEW: Bitcrusher parameters ===
+volatile bool bitcrusher_enabled = false;
+volatile float bitcrush_amount = 0.0f;   // 0-1 (Bit reduction)
+volatile float downsample_amount = 0.0f; // 0-1 (Sample rate reduction)
+
+// === NEW: Compressor parameters ===
+volatile bool compressor_enabled = false;
+volatile float comp_ratio = 4.0f;    // 1-40
+volatile float comp_thresh = -20.0f; // 0 to -80 dB
+volatile float comp_attack = 0.05f;  // 0.001 - 10s
+volatile float comp_release = 0.2f;  // 0.001 - 10s
+
+// SVF Filter parameters (Per-Voice)
+volatile float filter_cutoff = 1000.0f; // Hz
+volatile float filter_res = 0.0f;
+volatile float filter_drive = 0.0f;
+volatile float filter_env_amt = 0.0f; // -1.0 to 1.0 (Amt to add to cutoff)
+volatile float filter_lfo_amt = 0.0f; // -1.0 to 1.0 (Amt to add to cutoff)
+
+// Voice LFO Parameters
+volatile float lfo_rate = 1.0f; // Hz
+volatile float lfo_amp = 0.0f;  // 0-1 (Global LFO Amplitude?)
 
 // Moog Filter parameters
 volatile float moog_cutoff = 0.5f;
@@ -109,6 +141,28 @@ volatile float osc_pulsewidth = 0.5f;
 volatile float osc2_detune =
     0.1f;                       // Detune in semitones (0-1 maps to 0-24 cents)
 volatile float osc2_mix = 0.5f; // 0 = osc1 only, 1 = osc2 only, 0.5 = equal mix
+
+// ADSR Envelope parameters
+volatile float env_attack = 0.01f; // Attack time in seconds (0.001 - 2.0)
+volatile float env_decay = 0.2f;   // Decay time in seconds (0.001 - 2.0)
+volatile float env_sustain = 0.7f; // Sustain level (0.0 - 1.0)
+volatile float env_release = 0.3f; // Release time in seconds (0.001 - 3.0)
+
+// === NEW: Portamento/Glide ===
+volatile bool portamento_enabled = false; // CC84 toggle
+volatile float portamento_time = 0.1f;    // CC5: Glide time 0.01-1.0 seconds
+
+// === NEW: Velocity Curves ===
+// 0 = Linear, 1 = Exponential (more dynamic), 2 = Logarithmic (compressed)
+volatile uint8_t velocity_curve = 0; // CC88
+
+// === NEW: FM Synthesis parameters ===
+volatile float fm_ratio = 2.0f; // CC89: Mod/Carrier ratio (0.5-8.0)
+volatile float fm_index = 1.0f; // CC90: Modulation index (0-10)
+
+// === NEW: Wavetable/VariableSaw parameters ===
+volatile float varsaw_waveshape = 0.5f; // CC94: Waveform morph (0-1)
+volatile float varsaw_pw = 0.0f;        // CC96: Pulse Width (-1 to +1)
 
 // Pluck voice parameters
 volatile float pluck_decay = 0.95f;
@@ -174,16 +228,40 @@ int AllocateVoice(uint8_t note) {
   return (free_voice >= 0) ? free_voice : oldest_voice;
 }
 
+// === NEW: Velocity Curve Processing ===
+// Applies selected curve to velocity for more expressive playing
+float applyVelocityCurve(float velocity, uint8_t curve) {
+  switch (curve) {
+  case 0: // Linear (default)
+    return velocity;
+  case 1: // Exponential (more dynamic range, quiet notes quieter)
+    return velocity * velocity;
+  case 2: // Logarithmic (compressed, quiet notes louder)
+    return sqrtf(velocity);
+  default:
+    return velocity;
+  }
+}
+
 // Arpeggiator: trigger a note with current settings
 void ArpTriggerNote(uint8_t note) {
   int v = AllocateVoice(note);
   float freq = mtof(note);
 
+  // Set all oscillator frequencies
   voices[v].osc.SetFreq(freq);
   voices[v].osc2.SetFreq(freq * powf(2.0f, osc2_detune / 12.0f));
   voices[v].pluck.SetFreq(freq);
-  voices[v].string.SetFreq(freq);
+  voices[v].ks.SetFreq(freq);
   voices[v].stringVoice.SetFreq(freq);
+  voices[v].fm.SetFrequency(freq);
+  voices[v].varsaw.SetFreq(freq);
+
+  // Portamento target
+  voices[v].target_freq = freq;
+  if (!portamento_enabled) {
+    voices[v].current_freq = freq; // No glide, instant
+  }
 
   voices[v].velocity = 0.8f; // Fixed velocity for arp
   voices[v].note = note;
@@ -270,200 +348,399 @@ uint8_t ArpGetNextNote() {
   return note;
 }
 
+// === Arpeggiator Timing (integer-based for jitter-free operation) ===
+// Uses fixed-point phase accumulator instead of floating-point
+uint32_t arp_phase_accumulator = 0;
+uint32_t arp_phase_increment = 0; // Calculated from BPM
+
+// Update arpeggiator timing parameters (call when BPM changes)
+void ArpUpdateTiming() {
+  // Phase increment = (BPM / 60) * (2^32 / SAMPLE_RATE)
+  // This gives us sample-accurate timing without float accumulation errors
+  float beats_per_sample = arp_bpm / (60.0f * SAMPLE_RATE);
+  arp_phase_increment = (uint32_t)(beats_per_sample * 4294967296.0f);
+}
+
+// === Musical Soft Clipper ===
+// Fast tanh approximation using rational polynomial (Pade approximant)
+// Provides smooth, tube-like saturation without harsh digital clipping
+inline float softClip(float x) {
+  // Use optimized cubic soft clip from FastMath
+  // Avoids division operations for better performance
+  return FastMath::CubicSoftClip(x);
+}
+
+// Global Panic Function
+void Panic() {
+  for (int i = 0; i < NUM_VOICES; i++) {
+    voices[i].gate = false;
+    voices[i].trig = false;
+    voices[i].velocity = 0.0f;
+    voices[i].env.SetSustainLevel(0.0f); // Force envelope down
+    voices[i].age = 0;
+  }
+  // Reset Arpeggiator
+  arp_note_count = 0;
+  arp_note_playing = false;
+
+  // Turn off LED
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+}
+
 void AudioCallback(int32_t *buffer, size_t size) {
+  // ===================================================================
+  // BLOCK START: Copy all volatile parameters to local variables ONCE
+  // This avoids memory reads every sample and enables register optimization
+  // ===================================================================
+
+  // Synth mode and master
+  SynthMode l_synth_mode = synth_mode;
+  float l_master_volume = master_volume;
+
+  // Oscillator parameters
+  uint8_t l_osc_waveform = osc_waveform;
+  float l_osc_pulsewidth = osc_pulsewidth;
+  float l_osc2_detune = osc2_detune;
+  float l_osc2_mix = osc2_mix;
+  // Detune ratio optimization moved to SynthVoice::UpdateParams
+
+  // ADSR parameters
+  float l_env_attack = env_attack;
+  float l_env_decay = env_decay;
+  float l_env_sustain = env_sustain;
+  float l_env_release = env_release;
+
+  // Pluck parameters
+  float l_pluck_decay = pluck_decay;
+  float l_pluck_damp = pluck_damp;
+
+  // String parameters
+  float l_string_brightness = string_brightness;
+  float l_string_damping = string_damping;
+  float l_string_nonlinearity = string_nonlinearity;
+
+  // StringVoice parameters
+  float l_sv_brightness = sv_brightness;
+  float l_sv_damping = sv_damping;
+  float l_sv_structure = sv_structure;
+  float l_sv_accent = sv_accent;
+
+  // Filter parameters
+  bool l_svf_enabled = svf_enabled;
+  bool l_moog_enabled = moog_enabled;
+  float l_filter_cutoff = filter_cutoff;
+  float l_filter_res = filter_res;
+  float l_filter_env_amt = filter_env_amt;
+  float l_filter_lfo_amt = filter_lfo_amt;
+  float l_lfo_rate = lfo_rate;
+  float l_lfo_amp = lfo_amp;
+
+  float l_moog_cutoff = moog_cutoff;
+  float l_moog_res = moog_res;
+
+  // Effect enables
+  bool l_chorus_enabled = chorus_enabled;
+  bool l_phaser_enabled = phaser_enabled;
+  bool l_delay_enabled = delay_enabled;
+  bool l_reverb_enabled = reverb_enabled;
+
+  // Effect mix levels
+  float l_chorus_mix = chorus_mix;
+  float l_phaser_mix = phaser_mix;
+  float l_delay_mix = delay_mix;
+  float l_reverb_mix = reverb_mix;
+
+  // Delay parameters
+  float l_delay_time = delay_time;
+  float l_delay_feedback = delay_feedback;
+
+  // Reverb parameters
+  float l_reverb_feedback = reverb_feedback;
+  float l_reverb_lpfreq = reverb_lpfreq;
+
+  // === NEW: Effect parameters ===
+  bool l_tremolo_enabled = tremolo_enabled;
+  float l_tremolo_freq = tremolo_freq;
+  float l_tremolo_depth = tremolo_depth;
+
+  bool l_flanger_enabled = flanger_enabled;
+  float l_flanger_freq = flanger_freq;
+  float l_flanger_depth = flanger_depth;
+  float l_flanger_feedback = flanger_feedback;
+
+  bool l_overdrive_enabled = overdrive_enabled;
+  float l_overdrive_drive = overdrive_drive;
+
+  bool l_bitcr_enabled = bitcrusher_enabled;
+  float l_bitcrush = bitcrush_amount;
+  float l_downsample = downsample_amount;
+
+  bool l_comp_enabled = compressor_enabled;
+  float l_comp_thresh = comp_thresh;
+  float l_comp_ratio = comp_ratio;
+  float l_comp_attack = comp_attack;
+  float l_comp_release = comp_release;
+
+  // Arpeggiator parameters
+
+  // Arpeggiator parameters
+  bool l_arp_enabled = arp_enabled;
+  float l_arp_bpm = arp_bpm;
+  float l_arp_gate = arp_gate;
+
+  // Portamento parameters
+  bool l_portamento_enabled = portamento_enabled;
+  float l_portamento_time = portamento_time;
+  // Calculate glide coefficient: how much to move toward target per sample
+  // Using exponential smoothing: coeff = 1 - e^(-1/(time * samplerate))
+  float porta_coeff = 1.0f - expf(-1.0f / (l_portamento_time * SAMPLE_RATE));
+
+  // ===================================================================
+  // BLOCK START: Update effect parameters ONCE per block (not per sample)
+  // ===================================================================
+
+  // LFO rate (only changes on CC)
+  // LFO rate (only changes on CC)
+  // lfw removed - LFO is now per-voice
+
+  // Moog filter parameters
+  if (l_moog_enabled) {
+    float moog_freq = 100.0f + (l_moog_cutoff * 7900.0f);
+    moog.SetFreq(moog_freq);
+    moog.SetRes(l_moog_res);
+  }
+
+  // Chorus parameters
+  if (l_chorus_enabled) {
+    chorus.SetLfoFreq(chorus_lfo_freq);
+    chorus.SetLfoDepth(chorus_lfo_depth);
+    chorus.SetDelayMs(chorus_delay);
+    chorus.SetFeedback(chorus_feedback);
+  }
+
+  // Phaser parameters
+  if (l_phaser_enabled) {
+    phaser.SetLfoFreq(phaser_lfo_freq);
+    phaser.SetLfoDepth(phaser_lfo_depth);
+    phaser.SetPoles(phaser_poles);
+    phaser.SetFeedback(phaser_feedback);
+  }
+
+  // Reverb parameters
+  if (l_reverb_enabled) {
+    reverb.SetFeedback(l_reverb_feedback);
+    reverb.SetLpFreq(l_reverb_lpfreq);
+  }
+
+  // === NEW: Update new effect parameters ===
+  if (l_tremolo_enabled) {
+    tremolo.SetFreq(l_tremolo_freq);
+    tremolo.SetDepth(l_tremolo_depth);
+  }
+  if (l_flanger_enabled) {
+    flanger.SetLfoFreq(l_flanger_freq);
+    flanger.SetLfoDepth(l_flanger_depth);
+    flanger.SetFeedback(l_flanger_feedback);
+  }
+  if (l_overdrive_enabled) {
+    overdrive.SetDrive(l_overdrive_drive);
+  }
+  if (l_bitcr_enabled) {
+    bitcrusher.SetBitcrushFactor(l_bitcrush);
+    bitcrusher.SetDownsampleFactor(l_downsample);
+  }
+  if (l_comp_enabled) {
+    compressor.SetThreshold(l_comp_thresh);
+    compressor.SetRatio(l_comp_ratio);
+    compressor.SetAttack(l_comp_attack);
+    compressor.SetRelease(l_comp_release);
+  }
+
+  // ADSR parameters for all voices (apply once per block)
+  // === Update Voice Parameters ===
+  VoiceParams p;
+  p.mode = l_synth_mode;
+  p.osc_waveform = l_osc_waveform;
+  p.osc_pulsewidth = l_osc_pulsewidth;
+  p.osc2_detune = l_osc2_detune;
+  p.osc2_mix = l_osc2_mix;
+  p.env_attack = l_env_attack;
+  p.env_decay = l_env_decay;
+  p.env_sustain = l_env_sustain;
+  p.env_release = l_env_release;
+  p.pluck_decay = l_pluck_decay;
+  p.pluck_damp = l_pluck_damp;
+  p.string_brightness = l_string_brightness;
+  p.string_damping = l_string_damping;
+  p.string_nonlinearity = l_string_nonlinearity;
+  p.sv_brightness = l_sv_brightness;
+  p.sv_damping = l_sv_damping;
+  p.sv_structure = l_sv_structure;
+  p.sv_accent = l_sv_accent;
+  p.fm_ratio = fm_ratio;                 // Global
+  p.fm_index = fm_index;                 // Global
+  p.varsaw_waveshape = varsaw_waveshape; // Global
+  p.varsaw_pw = varsaw_pw;               // Global
+  p.portamento_enabled = l_portamento_enabled;
+  p.portamento_time = l_portamento_time;
+  p.velocity_curve = (float)velocity_curve; // Global
+
+  // Filter & Mod Params
+  // Map 0-1 cutoff to Hz (Logarithmic-ish mapping)
+  // 20Hz to 12000Hz
+  p.filter_cutoff = 20.0f + (l_filter_cutoff * l_filter_cutoff * 12000.0f);
+  p.filter_res = l_filter_res;
+  p.filter_env_amt = l_filter_env_amt;
+  p.filter_lfo_amt = l_filter_lfo_amt;
+  p.lfo_rate = l_lfo_rate * 20.0f; // 0-1 -> 0-20Hz
+  p.lfo_amp = l_lfo_amp;
+
+  for (int v = 0; v < NUM_VOICES; v++) {
+    voices[v].UpdateParams(p, SAMPLE_RATE);
+  }
+
+  // Arpeggiator timing update (integer-based)
+  uint32_t l_arp_phase_inc =
+      (uint32_t)((l_arp_bpm / (60.0f * SAMPLE_RATE)) * 4294967296.0f);
+  uint32_t l_arp_gate_threshold = (uint32_t)(l_arp_gate * 4294967296.0f);
+
+  // Pre-calculate delay read parameters
+  float delay_samples = l_delay_time * (DELAY_MAX_SAMPLES - 1);
+  size_t delay_int = (size_t)delay_samples;
+  float delay_frac_local = delay_samples - (float)delay_int;
+
+  // ===================================================================
+  // SAMPLE LOOP: Per-sample processing using local variables
+  // ===================================================================
   for (size_t i = 0; i < size; i++) {
 
-    // --- Arpeggiator Processing ---
-    if (arp_enabled && arp_note_count > 0) {
-      float step_duration = (60.0f / arp_bpm) * SAMPLE_RATE; // Samples per beat
-      uint32_t step_samples = (uint32_t)step_duration;
-      arp_gate_samples = (uint32_t)(step_duration * arp_gate);
+    // --- Arpeggiator Processing (integer-based timing) ---
+    if (l_arp_enabled && arp_note_count > 0) {
+      uint32_t prev_phase = arp_phase_accumulator;
+      arp_phase_accumulator += l_arp_phase_inc;
 
-      arp_sample_counter++;
-
-      // Gate off
-      if (arp_note_playing && arp_sample_counter >= arp_gate_samples) {
-        ArpReleaseNote();
-        arp_note_playing = false;
-      }
-
-      // Next step
-      if (arp_sample_counter >= step_samples) {
-        arp_sample_counter = 0;
+      // Detect phase wrap (new beat)
+      if (arp_phase_accumulator < prev_phase) {
+        // New step - trigger next note
         uint8_t note = ArpGetNextNote();
         if (note > 0) {
           ArpTriggerNote(note);
           arp_note_playing = true;
         }
       }
-    }
 
-    // --- LFO for Filter Sweep ---
-    lfw.SetFreq(lfo_rate);
-    float lfo_out = lfw.Process();
-    // Base cutoff (200-8000 Hz) + LFO modulation
-    float base_freq = 200.0f + (filter_cutoff * 7800.0f);
-    float cutoff = base_freq + (lfo_out * base_freq * 0.5f);
-    filter.SetFreq(cutoff);
-    filter.SetDrive(filter_drive);
+      // Gate off detection
+      if (arp_note_playing && arp_phase_accumulator >= l_arp_gate_threshold) {
+        ArpReleaseNote();
+        arp_note_playing = false;
+      }
+    }
 
     // --- Mix all voices ---
     float mix = 0.0f;
     for (int v = 0; v < NUM_VOICES; v++) {
-      float sig = 0.0f;
-
-      switch (synth_mode) {
-      case SYNTH_OSC: {
-        // Dual oscillator with detune (unison/supersaw)
-        voices[v].osc.SetWaveform(osc_waveform);
-        voices[v].osc.SetPw(osc_pulsewidth);
-        voices[v].osc2.SetWaveform(osc_waveform);
-        voices[v].osc2.SetPw(osc_pulsewidth);
-
-        float sig1 = voices[v].osc.Process();
-        float sig2 = voices[v].osc2.Process();
-
-        // Mix oscillators: 0 = osc1 only, 1 = osc2 only, 0.5 = equal
-        sig = sig1 * (1.0f - osc2_mix) + sig2 * osc2_mix;
-        sig *= voices[v].env.Process(voices[v].gate) * voices[v].velocity;
-        break;
-      }
-
-      case SYNTH_PLUCK: {
-        // Simple Karplus-Strong pluck - apply current settings
-        voices[v].pluck.SetDecay(pluck_decay);
-        voices[v].pluck.SetDamp(pluck_damp);
-        float trig = voices[v].trig ? 1.0f : 0.0f;
-        sig = voices[v].pluck.Process(trig);
-        voices[v].trig = false;
-        sig *= voices[v].velocity;
-        break;
-      }
-
-      case SYNTH_STRING: {
-        // Karplus-Strong String - apply current settings
-        voices[v].string.SetBrightness(string_brightness);
-        voices[v].string.SetDamping(string_damping);
-        voices[v].string.SetNonLinearity(string_nonlinearity);
-        float excitation = voices[v].gate
-                               ? ((float)rand() / RAND_MAX * 2.0f - 1.0f) * 0.3f
-                               : 0.0f;
-        sig = voices[v].string.Process(excitation);
-        sig *= voices[v].velocity;
-        break;
-      }
-
-      case SYNTH_STRINGVOICE:
-        // Extended KS (Rings-style) - apply current settings
-        voices[v].stringVoice.SetBrightness(sv_brightness);
-        voices[v].stringVoice.SetDamping(sv_damping);
-        voices[v].stringVoice.SetStructure(sv_structure);
-        voices[v].stringVoice.SetAccent(sv_accent);
-        if (voices[v].trig) {
-          voices[v].stringVoice.Trig();
-          voices[v].trig = false;
-        }
-        sig = voices[v].stringVoice.Process();
-        sig *= voices[v].velocity;
-        break;
-      }
-
-      mix += sig;
+      mix += voices[v].Process();
     }
 
     // Scale down to prevent clipping
     mix *= (1.0f / NUM_VOICES);
 
-    // --- Filters (can stack both) ---
-    float filtered = mix;
-
-    // SVF Filter
-    if (svf_enabled) {
-      filter.Process(filtered);
-      filtered = filter.Low();
+    // Overdrive (Distortion) - Applied before filters
+    if (l_overdrive_enabled) {
+      mix = overdrive.Process(mix);
     }
 
-    // Moog Ladder Filter
-    if (moog_enabled) {
-      float moog_freq = 100.0f + (moog_cutoff * 7900.0f);
-      moog.SetFreq(moog_freq);
-      moog.SetRes(moog_res);
+    // Bitcrusher
+    if (l_bitcr_enabled) {
+      mix = bitcrusher.Process(mix);
+    }
+
+    // --- Filters ---
+    float filtered = mix;
+
+    // SVF is now per-voice, so we skip global processing here.
+
+    if (l_moog_enabled) {
       filtered = moog.Process(filtered);
     }
 
-    // --- Effects Chain (with enable toggles) ---
+    // Tremolo (Amplitude Modulation)
+    if (l_tremolo_enabled) {
+      filtered = tremolo.Process(filtered);
+    }
+
+    // Flanger (Mono)
+    if (l_flanger_enabled) {
+      filtered = flanger.Process(filtered);
+    }
+
+    // --- Effects Chain ---
     float out_left = filtered;
     float out_right = filtered;
 
     // Chorus
-    if (chorus_enabled) {
-      chorus.SetLfoFreq(chorus_lfo_freq);
-      chorus.SetLfoDepth(chorus_lfo_depth);
-      chorus.SetDelayMs(chorus_delay);
-      chorus.SetFeedback(chorus_feedback);
+    if (l_chorus_enabled) {
       chorus.Process(filtered);
-      out_left = filtered * (1.0f - chorus_mix) + chorus.GetLeft() * chorus_mix;
+      out_left =
+          filtered * (1.0f - l_chorus_mix) + chorus.GetLeft() * l_chorus_mix;
       out_right =
-          filtered * (1.0f - chorus_mix) + chorus.GetRight() * chorus_mix;
+          filtered * (1.0f - l_chorus_mix) + chorus.GetRight() * l_chorus_mix;
     }
 
     // Phaser
-    if (phaser_enabled) {
-      phaser.SetLfoFreq(phaser_lfo_freq);
-      phaser.SetLfoDepth(phaser_lfo_depth);
-      phaser.SetPoles(phaser_poles);
-      phaser.SetFeedback(phaser_feedback);
+    if (l_phaser_enabled) {
       float ph_left = phaser.Process(out_left);
       float ph_right = phaser.Process(out_right);
-      out_left = out_left * (1.0f - phaser_mix) + ph_left * phaser_mix;
-      out_right = out_right * (1.0f - phaser_mix) + ph_right * phaser_mix;
+      out_left = out_left * (1.0f - l_phaser_mix) + ph_left * l_phaser_mix;
+      out_right = out_right * (1.0f - l_phaser_mix) + ph_right * l_phaser_mix;
     }
 
     // Delay (stereo with feedback)
-    if (delay_enabled) {
-      // Calculate delay in samples with interpolation
-      float delay_samples = delay_time * (DELAY_MAX_SAMPLES - 1);
-      size_t delay_int = (size_t)delay_samples;
-      float frac = delay_samples - (float)delay_int;
-
-      // Read with linear interpolation
+    if (l_delay_enabled) {
       size_t read_pos =
           (delay_write_ptr + DELAY_MAX_SAMPLES - delay_int) % DELAY_MAX_SAMPLES;
       size_t read_pos2 = (read_pos + DELAY_MAX_SAMPLES - 1) % DELAY_MAX_SAMPLES;
-      float del_l =
-          delay_buf_left[read_pos] +
-          (delay_buf_left[read_pos2] - delay_buf_left[read_pos]) * frac;
-      float del_r =
-          delay_buf_right[read_pos] +
-          (delay_buf_right[read_pos2] - delay_buf_right[read_pos]) * frac;
+      float del_l = delay_buf_left[read_pos] +
+                    (delay_buf_left[read_pos2] - delay_buf_left[read_pos]) *
+                        delay_frac_local;
+      float del_r = delay_buf_right[read_pos] +
+                    (delay_buf_right[read_pos2] - delay_buf_right[read_pos]) *
+                        delay_frac_local;
 
-      // Write with cross-feedback for stereo width
       delay_buf_left[delay_write_ptr] =
-          out_left + del_r * delay_feedback * 0.7f;
+          out_left + del_r * l_delay_feedback * 0.7f;
       delay_buf_right[delay_write_ptr] =
-          out_right + del_l * delay_feedback * 0.7f;
+          out_right + del_l * l_delay_feedback * 0.7f;
       delay_write_ptr = (delay_write_ptr + 1) % DELAY_MAX_SAMPLES;
 
-      out_left = out_left * (1.0f - delay_mix) + del_l * delay_mix;
-      out_right = out_right * (1.0f - delay_mix) + del_r * delay_mix;
+      out_left = out_left * (1.0f - l_delay_mix) + del_l * l_delay_mix;
+      out_right = out_right * (1.0f - l_delay_mix) + del_r * l_delay_mix;
     }
 
     // Reverb
-    if (reverb_enabled) {
-      float rev_fb = reverb_feedback; // Local copy to avoid volatile binding
-      float rev_lp = reverb_lpfreq;
-      reverb.SetFeedback(rev_fb);
-      reverb.SetLpFreq(rev_lp);
+    if (l_reverb_enabled) {
       float rev_left = 0.0f, rev_right = 0.0f;
       reverb.Process(out_left, out_right, &rev_left, &rev_right);
-      out_left = out_left * (1.0f - reverb_mix) + rev_left * reverb_mix;
-      out_right = out_right * (1.0f - reverb_mix) + rev_right * reverb_mix;
+      out_left = out_left * (1.0f - l_reverb_mix) + rev_left * l_reverb_mix;
+      out_right = out_right * (1.0f - l_reverb_mix) + rev_right * l_reverb_mix;
     }
 
-    // --- Output with Master Volume ---
-    float amp = 0.1f * master_volume; // Base safe level * user volume
-    int32_t sl = (int32_t)(out_left * amp * 2147483647.0f);
-    int32_t sr = (int32_t)(out_right * amp * 2147483647.0f);
+    // Compressor (Master Bus)
+    if (l_comp_enabled) {
+      // Sidechain key same as input for now (standard compression)
+      out_left = compressor.Process(out_left);
+      out_right = compressor.Process(out_right);
+    }
+
+    // --- Musical Soft Clipper + Output ---
+    // Apply gain and soft clip for warm, tube-like saturation
+    float amp = 0.1f * l_master_volume;
+    float clipped_l = softClip(out_left * amp * 1.5f); // Drive into soft clip
+    float clipped_r = softClip(out_right * amp * 1.5f);
+
+    // Scale to 32-bit output (already limited to ±1.0 by soft clipper)
+    int32_t sl = (int32_t)(clipped_l * 2147483647.0f);
+    int32_t sr = (int32_t)(clipped_r * 2147483647.0f);
 
     buffer[i * 2] = sl;
     buffer[i * 2 + 1] = sr;
@@ -493,6 +770,12 @@ void tud_midi_rx_cb(uint8_t itf) {
       case 3:
         synth_mode = SYNTH_STRINGVOICE;
         break;
+      case 4:
+        synth_mode = SYNTH_FM;
+        break;
+      case 5:
+        synth_mode = SYNTH_WAVETABLE;
+        break;
       default:
         synth_mode = SYNTH_OSC;
         break;
@@ -513,11 +796,22 @@ void tud_midi_rx_cb(uint8_t itf) {
         filter_drive = val;
         break; // CC21 = SVF Drive
       case 74:
-        filter.SetRes(val);
+        filter_res = val;
         break; // CC74 = SVF Resonance
       case 76:
-        lfo_rate = 0.1f + val * 5.0f;
-        break; // CC76 = LFO Rate
+        lfo_rate = 0.1f + val * 19.9f;
+        break; // CC76 = LFO Rate (0.1 - 20Hz)
+
+      // Modulation Controls
+      case 29:
+        lfo_amp = val;
+        break; // CC29 = LFO Amp (Global)
+      case 30:
+        filter_env_amt = val * 2.0f - 1.0f; // Bipolar -1 to 1
+        break;                              // CC30 = Filter Env Amount
+      case 31:
+        filter_lfo_amt = val;
+        break; // CC31 = Filter LFO Amount
 
       // Oscillator voice controls
       case 70:
@@ -532,6 +826,20 @@ void tud_midi_rx_cb(uint8_t itf) {
       case 80:
         osc2_mix = val;
         break; // CC80 = Osc2 Mix
+
+      // ADSR Envelope controls
+      case 24:
+        env_attack = 0.001f + val * 1.999f;
+        break; // CC24 = Attack (0.001-2.0s)
+      case 25:
+        env_decay = 0.001f + val * 1.999f;
+        break; // CC25 = Decay (0.001-2.0s)
+      case 26:
+        env_sustain = val;
+        break; // CC26 = Sustain (0-1)
+      case 27:
+        env_release = 0.001f + val * 2.999f;
+        break; // CC27 = Release (0.001-3.0s)
 
       // Pluck voice controls
       case 72:
@@ -565,6 +873,42 @@ void tud_midi_rx_cb(uint8_t itf) {
       case 105:
         sv_accent = val;
         break; // CC105 = SV Accent
+
+      // === NEW: Portamento/Glide ===
+      case 5:
+        portamento_time = 0.01f + val * 0.99f;
+        break; // CC5 = Portamento Time (0.01-1.0s)
+      case 84:
+        portamento_enabled = toggle;
+        break; // CC84 = Portamento Enable
+
+      // === NEW: Velocity Curve ===
+      case 88:
+        velocity_curve = (uint8_t)(val * 2.99f);
+        break; // CC88 = Velocity Curve (0=Lin, 1=Exp, 2=Log)
+
+      // === NEW: FM Synthesis controls ===
+      case 89:
+        fm_ratio = 0.5f + val * 7.5f;
+        break; // CC89 = FM Ratio (0.5-8.0)
+      case 90:
+        fm_index = val * 10.0f;
+        break; // CC90 = FM Index (0-10)
+
+      // === NEW: Wavetable/VariableSaw controls ===
+      case 94:
+        varsaw_waveshape = val;
+        break; // CC94 = Waveshape (0-1)
+      case 96:
+        varsaw_pw = val * 2.0f - 1.0f;
+        break; // CC96 = Pulse Width (-1 to +1)
+
+      // === NEW: Panic Button ===
+      case 81:
+        if (data2 > 64) {
+          Panic();
+        }
+        break; // CC81 = Panic (>64 triggers)
 
       // Master Volume
       case 7:
@@ -620,6 +964,67 @@ void tud_midi_rx_cb(uint8_t itf) {
       case 87:
         delay_mix = val;
         break; // CC87 = Delay Mix
+
+      // === NEW: Tremolo controls ===
+      case 123:
+        tremolo_enabled = toggle;
+        break; // CC123 = Tremolo Enable
+      case 124:
+        tremolo_freq = 0.5f + val * 19.5f;
+        break; // CC124 = Tremolo Freq (0.5-20 Hz)
+      case 125:
+        tremolo_depth = val;
+        break; // CC125 = Tremolo Depth (0-1)
+
+      // === NEW: Flanger controls ===
+      case 17:
+        flanger_enabled = toggle;
+        break; // CC17 = Flanger Enable
+      case 18:
+        flanger_freq = 0.1f + val * 4.9f;
+        break; // CC18 = Flanger LFO Freq (0.1-5 Hz)
+      case 19:
+        flanger_depth = val;
+        break; // CC19 = Flanger Depth (0-1)
+      case 20:
+        flanger_feedback = val;
+        break; // CC20 = Flanger Feedback (0-1)
+
+      // === NEW: Overdrive control ===
+      case 14:
+        overdrive_enabled = toggle;
+        break; // CC14 = Overdrive Enable
+      case 15:
+        overdrive_drive = val;
+        break; // CC15 = Overdrive Drive (0-1)
+
+      // === NEW: Bitcrusher controls ===
+      case 35:
+        bitcrusher_enabled = toggle;
+        break; // CC35 = Bitcrusher Enable
+      case 36:
+        bitcrush_amount = val;
+        break; // CC36 = Bitcrush Amount (0-1)
+      case 37:
+        downsample_amount = val;
+        break; // CC37 = Downsample Amount (0-1)
+
+      // === NEW: Compressor controls ===
+      case 40:
+        compressor_enabled = toggle;
+        break; // CC40 = Compressor Enable
+      case 41:
+        comp_thresh = -80.0f + val * 80.0f;
+        break; // CC41 = Threshold (-80 to 0 dB)
+      case 42:
+        comp_ratio = 1.0f + val * 39.0f;
+        break; // CC42 = Ratio (1-40)
+      case 43:
+        comp_attack = 0.001f + val * 0.5f; // Short attack range 1-500ms
+        break;                             // CC43 = Attack
+      case 44:
+        comp_release = 0.001f + val * 2.0f; // Release range 1ms-2s
+        break;                              // CC44 = Release
 
       // Arpeggiator controls
       case 108:
@@ -712,21 +1117,15 @@ void tud_midi_rx_cb(uint8_t itf) {
         }
       } else {
         // Normal note on
+        // Normal note on
         int v = AllocateVoice(data1);
-        float freq = mtof(data1);
 
-        voices[v].osc.SetFreq(freq);
-        voices[v].osc2.SetFreq(freq * powf(2.0f, osc2_detune / 12.0f));
-        voices[v].pluck.SetFreq(freq);
-        voices[v].string.SetFreq(freq);
-        voices[v].stringVoice.SetFreq(freq);
+        // Apply velocity curve
+        float raw_velocity = (float)data2 / 127.0f;
+        float final_velocity =
+            applyVelocityCurve(raw_velocity, (uint8_t)velocity_curve);
 
-        voices[v].velocity = (float)data2 / 127.0f;
-        voices[v].note = data1;
-        voices[v].gate = true;
-        voices[v].trig = true;
-        voices[v].age = ++voice_counter;
-        voices[v].env.Retrigger(false);
+        voices[v].NoteOn(data1, final_velocity);
 
         // LED on for note activity
         HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
@@ -752,8 +1151,8 @@ void tud_midi_rx_cb(uint8_t itf) {
       } else {
         // Normal note off
         for (int v = 0; v < NUM_VOICES; v++) {
-          if (voices[v].note == data1 && voices[v].gate) {
-            voices[v].gate = false;
+          if (voices[v].GetNote() == data1 && voices[v].gate) {
+            voices[v].NoteOff();
             break;
           }
         }
@@ -808,60 +1207,13 @@ int main(void) {
 
   // Initialize all voices
   for (int v = 0; v < NUM_VOICES; v++) {
-    // Oscillator engine
-    voices[v].osc.Init(SAMPLE_RATE);
-    voices[v].osc.SetWaveform(Oscillator::WAVE_SAW);
-    voices[v].osc.SetAmp(1.0f);
-
-    // Second oscillator for unison/detune
-    voices[v].osc2.Init(SAMPLE_RATE);
-    voices[v].osc2.SetWaveform(Oscillator::WAVE_SAW);
-    voices[v].osc2.SetAmp(1.0f);
-
-    // Pluck/Karplus-Strong engine
-    voices[v].pluck.Init(SAMPLE_RATE, voices[v].pluck_buf, PLUCK_BUF_SIZE,
-                         PLUCK_MODE_RECURSIVE);
-    voices[v].pluck.SetAmp(1.0f);
-    voices[v].pluck.SetDecay(0.95f);
-    voices[v].pluck.SetDamp(0.5f);
-
-    // String engine (KS with damping/brightness)
-    voices[v].string.Init(SAMPLE_RATE);
-    voices[v].string.SetBrightness(0.5f);
-    voices[v].string.SetDamping(0.7f);
-
-    // StringVoice engine (Rings-style extended KS)
-    voices[v].stringVoice.Init(SAMPLE_RATE);
-    voices[v].stringVoice.SetBrightness(0.5f);
-    voices[v].stringVoice.SetDamping(0.5f);
-    voices[v].stringVoice.SetStructure(
-        0.4f);                             // Mix of curved bridge & dispersion
-    voices[v].stringVoice.SetAccent(0.8f); // Strong accent
-
-    // ADSR Envelope
-    voices[v].env.Init(SAMPLE_RATE);
-    voices[v].env.SetAttackTime(0.01f);
-    voices[v].env.SetDecayTime(0.2f);
-    voices[v].env.SetSustainLevel(0.7f);
-    voices[v].env.SetReleaseTime(0.3f);
-
-    voices[v].gate = false;
-    voices[v].trig = false;
-    voices[v].note = 0;
-    voices[v].velocity = 0.0f;
-    voices[v].age = 0;
+    voices[v].Init(SAMPLE_RATE);
   }
 
   // LFO for Filter Sweep
-  lfw.Init(SAMPLE_RATE);
-  lfw.SetWaveform(Oscillator::WAVE_TRI);
-  lfw.SetFreq(0.2f);
-  lfw.SetAmp(1.0f);
+  // lfw removed - LFO per voice
 
-  // SVF Filter Init
-  filter.Init(SAMPLE_RATE);
-  filter.SetRes(0.5f);
-  filter.SetDrive(0.2f);
+  // SVF Filter Init - REMOVED (Per-voice)
 
   // Moog Ladder Filter Init
   moog.Init(SAMPLE_RATE);
@@ -890,6 +1242,36 @@ int main(void) {
   reverb.Init(SAMPLE_RATE);
   reverb.SetFeedback(0.9f); // Long tail
   reverb.SetLpFreq(8000.0f);
+
+  // === NEW: Tremolo Init ===
+  tremolo.Init(SAMPLE_RATE);
+  tremolo.SetFreq(5.0f);
+  tremolo.SetDepth(0.5f);
+  tremolo.SetWaveform(Oscillator::WAVE_SIN);
+
+  // === NEW: Flanger Init ===
+  flanger.Init(SAMPLE_RATE);
+  flanger.SetLfoFreq(0.5f);
+  flanger.SetLfoDepth(0.5f);
+  flanger.SetFeedback(0.5f);
+  flanger.SetDelay(0.5f);
+
+  // === NEW: Overdrive Init ===
+  overdrive.Init();
+  overdrive.SetDrive(0.5f);
+
+  // === NEW: Bitcrusher Init ===
+  bitcrusher.Init();
+  bitcrusher.SetBitcrushFactor(0.0f);   // No effect
+  bitcrusher.SetDownsampleFactor(0.0f); // No effect
+
+  // === NEW: Compressor Init ===
+  compressor.Init(SAMPLE_RATE);
+  compressor.SetRatio(4.0f);
+  compressor.SetThreshold(-20.0f);
+  compressor.SetAttack(0.05f);
+  compressor.SetRelease(0.2f);
+  compressor.AutoMakeup(true); // Enable auto makeup gain
 
   // Sequencer Clock (Removed for MIDI)
   // clock.Init(4.0f, SAMPLE_RATE);

@@ -255,6 +255,24 @@ deisyleuza/
 | 113-116 | Chorus (LFO Freq/Depth/Delay/Feedback) |
 | 117-120 | Phaser (LFO Freq/Depth/Poles/Feedback) |
 | 121-122 | Reverb (Decay/LP Freq)                 |
+| 123-125 | Tremolo (Enable/Freq/Depth)            |
+| 17-20   | Flanger (Enable/Freq/Depth/Feedback)   |
+
+#### Distortion & Dynamics
+
+| CC  | Parameter        | Range      |
+| --- | ---------------- | ---------- |
+| 14  | Overdrive Enable | Tgl        |
+| 15  | Overdrive Drive  | 0-1        |
+| 16  | Overdrive Level  | 0-1        |
+| 35  | Bitcrush Enable  | Tgl        |
+| 36  | Bitcrush Amount  | 0-1        |
+| 37  | Downsample Amt   | 0-1        |
+| 40  | Compressor On    | Tgl        |
+| 41  | Comp Threshold   | -80 to 0dB |
+| 42  | Comp Ratio       | 1-40       |
+| 43  | Comp Attack      | 1-500ms    |
+| 44  | Comp Release     | 1ms-2s     |
 
 #### Arpeggiator
 

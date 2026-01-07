@@ -107,6 +107,7 @@ volatile float flanger_feedback = 0.5f; // Feedback 0-1
 // === NEW: Overdrive parameters ===
 volatile bool overdrive_enabled = false;
 volatile float overdrive_drive = 0.5f; // Drive amount 0-1
+volatile float overdrive_level = 1.0f; // Output level compensation 0-1
 
 // === NEW: Bitcrusher parameters ===
 volatile bool bitcrusher_enabled = false;
@@ -470,6 +471,7 @@ void AudioCallback(int32_t *buffer, size_t size) {
 
   bool l_overdrive_enabled = overdrive_enabled;
   float l_overdrive_drive = overdrive_drive;
+  float l_overdrive_level = overdrive_level;
 
   bool l_bitcr_enabled = bitcrusher_enabled;
   float l_bitcrush = bitcrush_amount;
@@ -648,6 +650,7 @@ void AudioCallback(int32_t *buffer, size_t size) {
     // Overdrive (Distortion) - Applied before filters
     if (l_overdrive_enabled) {
       mix = overdrive.Process(mix);
+      mix *= l_overdrive_level; // Output level compensation
     }
 
     // Bitcrusher
@@ -991,12 +994,16 @@ void tud_midi_rx_cb(uint8_t itf) {
         break; // CC20 = Flanger Feedback (0-1)
 
       // === NEW: Overdrive control ===
+      // === NEW: Overdrive control ===
       case 14:
         overdrive_enabled = toggle;
         break; // CC14 = Overdrive Enable
       case 15:
         overdrive_drive = val;
         break; // CC15 = Overdrive Drive (0-1)
+      case 16:
+        overdrive_level = val;
+        break; // CC16 = Overdrive Level (0-1)
 
       // === NEW: Bitcrusher controls ===
       case 35:

@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DaisySP Synth Controller</title>
+<style>
+      :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: #12121a;
+        --accent: #00d4ff;
+        --accent-glow: #00d4ff40;
+        --text: #e8e8ff;
+        --text-dim: #888899;
+        --danger: #ff4466;
+        --success: #44ff88;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg-dark);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 2rem;
+        background: linear-gradient(135deg, var(--accent), #ff44aa);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      .status {
+        text-align: center;
+        padding: 8px 16px;
+        border-radius: 20px;
+        margin: 10px auto 30px;
+        width: fit-content;
+        font-size: 0.9rem;
+      }
+
+      .status.connected {
+        background: var(--success) 20;
+        border: 1px solid var(--success);
+        color: var(--success);
+      }
+
+      .status.disconnected {
+        background: var(--danger) 20;
+        border: 1px solid var(--danger);
+        color: var(--danger);
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid #ffffff10;
+        box-shadow: 0 8px 32px #00000040;
+      }
+
+      .card h2 {
+        font-size: 1rem;
+        color: var(--accent);
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .control-group {
+        margin-bottom: 20px;
+      }
+
+      .control-group:last-child {
+        margin-bottom: 0;
+      }
+
+      label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+      }
+
+      label span.value {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: #1a1a2e;
+        background: #1a1a2e;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        box-shadow: 0 0 10px var(--accent-glow);
+        transition: transform 0.1s;
+      }
+
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+
+      .synth-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .synth-btn {
+        flex: 1;
+        padding: 14px;
+        border: 2px solid var(--accent);
+        background: transparent;
+        color: var(--accent);
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .synth-btn.active {
+        background: var(--accent);
+        color: var(--bg-dark);
+      }
+
+      .synth-btn:hover {
+        background: var(--accent) 30;
+      }
+
+      .keyboard {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 10px;
+      }
+
+      .key {
+        width: 40px;
+        height: 120px;
+        background: linear-gradient(180deg, #fff, #ddd);
+        border-radius: 0 0 6px 6px;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.05s;
+      }
+
+      .key:active,
+      .key.pressed {
+        transform: translateY(3px);
+        background: linear-gradient(180deg, #ddd, #bbb);
+      }
+
+      .key.black {
+        width: 28px;
+        height: 75px;
+        background: linear-gradient(180deg, #333, #111);
+        margin: 0 -14px;
+        z-index: 1;
+      }
+
+      .key.black:active,
+      .key.black.pressed {
+        background: linear-gradient(180deg, #222, #000);
+      }
+
+      .midi-select {
+        width: 100%;
+        padding: 12px;
+        background: #1a1a2e;
+        border: 1px solid #ffffff20;
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .midi-select:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+    </style>
+</head>
+<body>
+<h1>DaisySP Web Synthesizer</h1>
+<div class="status disconnected" id="status">🟡 Clique em qualquer lugar para iniciar o áudio</div>
+<div class="container">
+<!-- Synth Mode -->
+<!-- =================================================================== -->
+<!-- SECTION: GLOBAL CONTROLS                                           -->
+<!-- =================================================================== -->
+<!-- Master Output & Visualizer -->
+<div class="card" style="grid-column: 1 / -1;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+<h2 style="margin: 0;">Master Output</h2>
+<div id="visualizer-status" style="font-size: 0.8em; color: var(--accent);">RMS: -inf dB</div>
+</div>
+<canvas id="signalCanvas" style="width: 100%; height: 60px; background: #000; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px;"></canvas>
+<div class="control-group">
+<label>Master Volume <span class="value" id="masterVolVal">-6dB</span></label>
+<input data-cc="7" data-format="db" id="masterVol" max="127" min="0" type="range" value="100"/>
+</div>
+</div>
+<!-- Synth Mode -->
+<div class="card" style="grid-column: 1 / -1;">
+<h2>🎵 Synthesis Mode &amp; Performance</h2>
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+<!-- Mode Selection -->
+<div>
+<p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Synth Engine</p>
+<div class="synth-buttons" style="flex-wrap: wrap;">
+<button class="synth-btn active" data-mode="0">Oscillator</button>
+<button class="synth-btn" data-mode="1">Pluck</button>
+<button class="synth-btn" data-mode="2">String</button>
+<button class="synth-btn" data-mode="3">StringVoice</button>
+<button class="synth-btn" data-mode="4">FM</button>
+<button class="synth-btn" data-mode="5">Wavetable</button>
+</div>
+</div>
+<!-- Performance Controls -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+<span style="font-size: 0.8rem; color: var(--text-dim);">Portamento</span>
+<button class="synth-btn toggle-btn" data-cc="84" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+</div>
+<div class="control-group" style="margin-bottom: 15px;">
+<label>Glide Time <span class="value" id="portaTimeVal">100ms</span></label>
+<input data-cc="5" data-format="portatime" id="portaTime" max="127" min="0" type="range" value="13"/>
+</div>
+<p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px;">Velocity Curve</p>
+<div class="synth-buttons" style="flex-wrap: wrap; gap: 5px;">
+<button class="synth-btn vel-curve-btn active" data-cc="88" data-curve="0" style="padding: 5px 10px;">Linear</button>
+<button class="synth-btn vel-curve-btn" data-cc="88" data-curve="1" style="padding: 5px 10px;">Exp</button>
+<button class="synth-btn vel-curve-btn" data-cc="88" data-curve="2" style="padding: 5px 10px;">Log</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Arpeggiator -->
+<div class="card" style="grid-column: 1 / -1;">
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+<h2 style="margin: 0;">🎼 Arpeggiator</h2>
+<button class="synth-btn toggle-btn" data-cc="108" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✗</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+<div class="control-group">
+<label>BPM <span class="value" id="arpBpmVal">150</span></label>
+<input data-cc="109" data-format="bpm" id="arpBpm" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Gate <span class="value" id="arpGateVal">55%</span></label>
+<input data-cc="110" data-format="percent" id="arpGate" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Octaves <span class="value" id="arpOctVal">1</span></label>
+<input data-cc="112" data-format="octaves" id="arpOct" max="127" min="0" type="range" value="0"/>
+</div>
+<div>
+<label style="margin-bottom: 8px; display: block;">Direction</label>
+<div class="synth-buttons" style="flex-wrap: wrap; gap: 5px;">
+<button class="synth-btn arp-dir-btn active" data-cc="111" data-dir="0" style="padding: 5px 8px;">Up</button>
+<button class="synth-btn arp-dir-btn" data-cc="111" data-dir="1" style="padding: 5px 8px;">Down</button>
+<button class="synth-btn arp-dir-btn" data-cc="111" data-dir="2" style="padding: 5px 8px;">Up&amp;Down</button>
+<button class="synth-btn arp-dir-btn" data-cc="111" data-dir="3" style="padding: 5px 8px;">Random</button>
+</div>
+</div>
+</div>
+</div>
+<!-- =================================================================== -->
+<!-- SECTION: VOICE ENGINES (grouped by synth type)                     -->
+<!-- =================================================================== -->
+<!-- Oscillator + ADSR (most common) -->
+<div class="card" style="grid-column: 1 / -1;">
+<h2>Oscillator Voice</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+<!-- Waveform & Osc2 -->
+<div>
+<p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Waveform</p>
+<div class="synth-buttons" style="flex-wrap: wrap; margin-bottom: 15px;">
+<button class="synth-btn waveform-btn" data-wf="0">SIN</button>
+<button class="synth-btn waveform-btn" data-wf="1">TRI</button>
+<button class="synth-btn waveform-btn active" data-wf="2">SAW</button>
+<button class="synth-btn waveform-btn" data-wf="3">RAMP</button>
+<button class="synth-btn waveform-btn" data-wf="4">SQ</button>
+<button class="synth-btn waveform-btn" data-wf="5">pTRI</button>
+<button class="synth-btn waveform-btn" data-wf="6">pSAW</button>
+<button class="synth-btn waveform-btn" data-wf="7">pSQ</button>
+</div>
+<div class="control-group">
+<label>Pulse Width <span class="value" id="pwVal">64</span></label>
+<input data-cc="71" id="pulseWidth" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Osc2 Detune <span class="value" id="detuneVal">13</span></label>
+<input data-cc="79" id="osc2Detune" max="127" min="0" type="range" value="13"/>
+</div>
+<div class="control-group">
+<label>Osc2 Mix <span class="value" id="osc2MixVal">64</span></label>
+<input data-cc="80" id="osc2Mix" max="127" min="0" type="range" value="64"/>
+</div>
+</div>
+<!-- ADSR Envelope -->
+<div>
+<p style="font-size: 0.8rem; color: var(--accent); margin-bottom: 10px;">ADSR Envelope</p>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+<div class="control-group">
+<label>Attack <span class="value" id="adsrAVal">10ms</span></label>
+<input data-cc="24" data-format="time2s" id="adsrAttack" max="127" min="0" type="range" value="1"/>
+</div>
+<div class="control-group">
+<label>Decay <span class="value" id="adsrDVal">200ms</span></label>
+<input data-cc="25" data-format="time2s" id="adsrDecay" max="127" min="0" type="range" value="13"/>
+</div>
+<div class="control-group">
+<label>Sustain <span class="value" id="adsrSVal">70%</span></label>
+<input data-cc="26" data-format="percent100" id="adsrSustain" max="127" min="0" type="range" value="89"/>
+</div>
+<div class="control-group">
+<label>Release <span class="value" id="adsrRVal">300ms</span></label>
+<input data-cc="27" data-format="time3s" id="adsrRelease" max="127" min="0" type="range" value="13"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Physical Modeling Voices (Pluck, String, StringVoice) -->
+<div class="card">
+<h2>Pluck</h2>
+<div class="control-group">
+<label>Decay <span class="value" id="pluckDecayVal">64</span></label>
+<input data-cc="72" id="pluckDecay" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Damp <span class="value" id="pluckDampVal">64</span></label>
+<input data-cc="73" id="pluckDamp" max="127" min="0" type="range" value="64"/>
+</div>
+</div>
+<div class="card">
+<h2>String</h2>
+<div class="control-group">
+<label>Brightness <span class="value" id="strBrightVal">64</span></label>
+<input data-cc="75" id="strBright" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Damping <span class="value" id="strDampVal">89</span></label>
+<input data-cc="77" id="strDamp" max="127" min="0" type="range" value="89"/>
+</div>
+<div class="control-group">
+<label>NonLinearity <span class="value" id="strNLVal">64</span></label>
+<input data-cc="78" id="strNL" max="127" min="0" type="range" value="64"/>
+</div>
+</div>
+<div class="card">
+<h2>StringVoice</h2>
+<div class="control-group">
+<label>Brightness <span class="value" id="svBrightVal">64</span></label>
+<input data-cc="102" id="svBright" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Damping <span class="value" id="svDampVal">64</span></label>
+<input data-cc="103" id="svDamp" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Structure <span class="value" id="svStructVal">51</span></label>
+<input data-cc="104" id="svStruct" max="127" min="0" type="range" value="51"/>
+</div>
+<div class="control-group">
+<label>Accent <span class="value" id="svAccentVal">102</span></label>
+<input data-cc="105" id="svAccent" max="127" min="0" type="range" value="102"/>
+</div>
+</div>
+<!-- FM + Wavetable (New Synth Engines) -->
+<div class="card">
+<h2>FM Synth</h2>
+<div class="control-group">
+<label>Ratio <span class="value" id="fmRatioVal">2.0</span></label>
+<input data-cc="89" data-format="fmratio" id="fmRatio" max="127" min="0" type="range" value="26"/>
+</div>
+<div class="control-group">
+<label>Index <span class="value" id="fmIndexVal">1.0</span></label>
+<input data-cc="90" data-format="fmindex" id="fmIndex" max="127" min="0" type="range" value="13"/>
+</div>
+<p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">Uses ADSR envelope</p>
+</div>
+<div class="card">
+<h2>Wavetable</h2>
+<div class="control-group">
+<label>Waveshape <span class="value" id="waveShapeVal">50%</span></label>
+<input data-cc="94" data-format="percent100" id="waveShape" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Pulse Width <span class="value" id="varsawPwVal">0%</span></label>
+<input data-cc="96" data-format="pwbipolar" id="varsawPw" max="127" min="0" type="range" value="64"/>
+</div>
+<p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">Variable Saw: Notch ↔ Slope</p>
+</div>
+<!-- =================================================================== -->
+<!-- SECTION: FILTERS (before effects in signal chain)                  -->
+<!-- =================================================================== -->
+<div class="card">
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+<h2 style="margin: 0;">🔊 SVF Filter</h2>
+<button class="synth-btn toggle-btn active" data-cc="64" data-state="1" style="padding: 6px 12px; min-width: auto;">✓</button>
+</div>
+<div class="control-group">
+<label>Cutoff <span class="value" id="cutoffVal">64</span></label>
+<input data-cc="1" id="cutoff" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Resonance <span class="value" id="resVal">64</span></label>
+<input data-cc="74" id="resonance" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Env Amt <span class="value" id="envAmtVal">64</span></label>
+<input data-cc="30" id="envAmt" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>LFO Amt <span class="value" id="lfoAmtVal">0</span></label>
+<input data-cc="31" id="lfoAmt" max="127" min="0" type="range" value="0"/>
+</div>
+<div class="control-group">
+<label>LFO Rate <span class="value" id="lfoVal">5</span></label>
+<input data-cc="76" id="lfoRate" max="127" min="0" type="range" value="5"/>
+</div>
+</div>
+<div class="card">
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+<h2 style="margin: 0;">🎚️ Moog Ladder</h2>
+<button class="synth-btn toggle-btn" data-cc="65" data-state="0" style="padding: 6px 12px; min-width: auto;">✗</button>
+</div>
+<div class="control-group">
+<label>Cutoff <span class="value" id="moogCutoffVal">64</span></label>
+<input data-cc="22" id="moogCutoff" max="127" min="0" type="range" value="64"/>
+</div>
+<div class="control-group">
+<label>Resonance <span class="value" id="moogResVal">38</span></label>
+<input data-cc="23" id="moogRes" max="127" min="0" type="range" value="38"/>
+</div>
+</div>
+<!-- =================================================================== -->
+<!-- SECTION: EFFECTS                                                   -->
+<!-- =================================================================== -->
+<div class="card" style="grid-column: 1 / -1;">
+<h2>Effects</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px;">
+<!-- Overdrive -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Overdrive</span>
+<button class="synth-btn toggle-btn" data-cc="14" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Drive</label>
+<input data-cc="15" data-format="percent100" id="driveAmount" max="127" min="0" type="range" value="64"/>
+<label style="font-size: 0.7rem;">Level</label>
+<input data-cc="16" data-format="percent100" id="driveLevel" max="127" min="0" type="range" value="127"/>
+</div>
+<!-- Bitcrusher -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Bitcrush</span>
+<button class="synth-btn toggle-btn" data-cc="35" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Bits</label>
+<input data-cc="36" data-format="percent100" id="bitAmount" max="127" min="0" type="range" value="0"/>
+<label style="font-size: 0.7rem;">Sample</label>
+<input data-cc="37" data-format="percent100" id="sampleAmount" max="127" min="0" type="range" value="0"/>
+</div>
+<!-- Compressor -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Comp</span>
+<button class="synth-btn toggle-btn" data-cc="40" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Thresh</label>
+<input data-cc="41" data-format="db" id="compThresh" max="127" min="0" type="range" value="95"/>
+<label style="font-size: 0.7rem;">Ratio</label>
+<input data-cc="42" data-format="ratio" id="compRatio" max="127" min="0" type="range" value="10"/>
+<label style="font-size: 0.7rem;">Attack</label>
+<input data-cc="43" data-format="ms_attack" id="compAttack" max="127" min="0" type="range" value="13"/>
+<label style="font-size: 0.7rem;">Release</label>
+<input data-cc="44" data-format="ms_release" id="compRelease" max="127" min="0" type="range" value="13"/>
+</div>
+<!-- Tremolo -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Tremolo</span>
+<button class="synth-btn toggle-btn" data-cc="123" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Freq</label>
+<input data-cc="124" data-format="tremolofreq" id="tremoloFreq" max="127" min="0" type="range" value="32"/>
+<label style="font-size: 0.7rem;">Depth</label>
+<input data-cc="125" data-format="percent100" id="tremoloDepth" max="127" min="0" type="range" value="64"/>
+</div>
+<!-- Flanger -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Flanger</span>
+<button class="synth-btn toggle-btn" data-cc="17" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Freq</label>
+<input data-cc="18" data-format="flangerfreq" id="flangerFreq" max="127" min="0" type="range" value="13"/>
+<label style="font-size: 0.7rem;">Depth</label>
+<input data-cc="19" data-format="percent100" id="flangerDepth" max="127" min="0" type="range" value="64"/>
+<label style="font-size: 0.7rem;">FBack</label>
+<input data-cc="20" data-format="percent100" id="flangerFb" max="127" min="0" type="range" value="64"/>
+</div>
+<!-- Chorus -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Chorus</span>
+<button class="synth-btn toggle-btn active" data-cc="66" data-state="1" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+</div>
+<label style="font-size: 0.7rem;">Mix</label>
+<input data-cc="93" id="chorus" max="127" min="0" type="range" value="38"/>
+<label style="font-size: 0.7rem;">LFO Freq</label>
+<input data-cc="113" id="chorusLfoFreq" max="127" min="0" type="range" value="13"/>
+<label style="font-size: 0.7rem;">LFO Depth</label>
+<input data-cc="114" id="chorusLfoDepth" max="127" min="0" type="range" value="38"/>
+<label style="font-size: 0.7rem;">Delay</label>
+<input data-cc="115" id="chorusDelay" max="127" min="0" type="range" value="25"/>
+<label style="font-size: 0.7rem;">Feedback</label>
+<input data-cc="116" id="chorusFb" max="127" min="0" type="range" value="25"/>
+</div>
+<!-- Phaser -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Phaser</span>
+<button class="synth-btn toggle-btn" data-cc="67" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Mix</label>
+<input data-cc="95" id="phaser" max="127" min="0" type="range" value="64"/>
+<label style="font-size: 0.7rem;">LFO Freq</label>
+<input data-cc="117" id="phaserLfoFreq" max="127" min="0" type="range" value="12"/>
+<label style="font-size: 0.7rem;">LFO Depth</label>
+<input data-cc="118" id="phaserLfoDepth" max="127" min="0" type="range" value="102"/>
+<label style="font-size: 0.7rem;">Poles</label>
+<input data-cc="119" id="phaserPoles" max="127" min="0" type="range" value="48"/>
+<label style="font-size: 0.7rem;">Feedback</label>
+<input data-cc="120" id="phaserFb" max="127" min="0" type="range" value="64"/>
+</div>
+<!-- Reverb -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Reverb</span>
+<button class="synth-btn toggle-btn active" data-cc="68" data-state="1" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+</div>
+<label style="font-size: 0.7rem;">Mix</label>
+<input data-cc="91" id="reverb" max="127" min="0" type="range" value="51"/>
+<label style="font-size: 0.7rem;">Decay</label>
+<input data-cc="121" id="reverbDecay" max="127" min="0" type="range" value="115"/>
+<label style="font-size: 0.7rem;">LP Freq</label>
+<input data-cc="122" id="reverbLp" max="127" min="0" type="range" value="64"/>
+</div>
+<!-- Delay -->
+<div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+<span>Delay</span>
+<button class="synth-btn toggle-btn" data-cc="69" data-state="0" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✕</button>
+</div>
+<label style="font-size: 0.7rem;">Time</label>
+<input data-cc="85" id="delayTime" max="127" min="0" type="range" value="32"/>
+<label style="font-size: 0.7rem;">Feedback</label>
+<input data-cc="86" id="delayFeedback" max="127" min="0" type="range" value="51"/>
+<label style="font-size: 0.7rem;">Mix</label>
+<input data-cc="87" id="delayMix" max="127" min="0" type="range" value="38"/>
+</div>
+</div>
+</div>
+<!-- MIDI Devices & Volume -->
+
+<!-- Keyboard -->
+<div class="card" style="grid-column: 1 / -1">
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+<!-- Keyboard -->
+<div class="card" style="grid-column: 1 / -1">
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+<h2 style="margin: 0;">Keyboard</h2>
+<button class="synth-btn toggle-btn active" id="keyboardToggle" style="padding: 4px 10px; min-width: auto; font-size: 0.9rem;">✓</button>
+<span style="font-size: 0.75rem; color: var(--text-dim);">Disable if using external MIDI controller</span>
+</div>
+<div class="keyboard" id="keyboard"></div>
+</div>
+</div>
+<script>
+      let audioContext;
+      let synthNode;
+
+      async function initWebAudio() {
+          if (audioContext) return;
+
+          document.getElementById('status').textContent = "🟡 Carregando Wasm...";
+
+          try {
+              audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+              await audioContext.audioWorklet.addModule('wasm/synth-worklet.js');
+              synthNode = new AudioWorkletNode(audioContext, 'synth-processor', { outputChannelCount: [2] });
+              synthNode.connect(audioContext.destination);
+
+              synthNode.port.onmessage = (e) => {
+                  if (e.data.type === 'ready') {
+                      const statusEl = document.getElementById('status');
+                      statusEl.className = "status connected";
+                      statusEl.textContent = "🟢 Web Synth Online (Wasm)";
+                  }
+              };
+          } catch (err) {
+              console.error(err);
+              document.getElementById('status').className = "status disconnected";
+              document.getElementById('status').textContent = "🔴 Erro ao carregar Wasm: " + err.message;
+          }
+      }
+
+      document.body.addEventListener('click', initWebAudio, { once: true });
+
+      function sendCC(cc, value) {
+          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0xB0, data1: cc, data2: value });
+      }
+
+      function sendProgramChange(program) {
+          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0xC0, data1: program, data2: 0 });
+      }
+
+      function sendNoteOn(note, velocity = 100) {
+          simulatedVolume = Math.min(simulatedVolume + (velocity / 127) * 0.5, 1.0);
+          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0x90, data1: note, data2: velocity });
+      }
+
+      function sendNoteOff(note) {
+          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0x80, data1: note, data2: 0 });
+      }
+
+
+      // Handle incoming MIDI and forward to output
+      function handleMIDIInput(event) {
+        if (midiOutput && event.data) {
+          // Forward all MIDI messages to output
+          midiOutput.send(event.data);
+
+          // Visual feedback on virtual keyboard for notes
+          const status = event.data[0] & 0xF0;
+          const note = event.data[1];
+
+          if (status === 0x90 && event.data[2] > 0) {
+            document.querySelector(`[data-note="${note}"]`)?.classList.add('pressed');
+          } else if (status === 0x80 || (status === 0x90 && event.data[2] === 0)) {
+            document.querySelector(`[data-note="${note}"]`)?.classList.remove('pressed');
+          }
+        }
+      }
+
+      function updateStatus(connected, message) {
+        const status = document.getElementById("status");
+        if (connected && midiOutput) {
+          status.className = "status connected";
+          status.textContent = "🟢 Connected: " + midiOutput.name;
+        } else {
+          status.className = "status disconnected";
+          status.textContent = message || "🔴 No MIDI Device";
+        }
+      }
+
+      // Send MIDI messages
+      function sendCC(cc, value) {
+        if (midiOutput) {
+          midiOutput.send([0xb0 | channel, cc, value]);
+        }
+      }
+
+      function sendProgramChange(program) {
+        if (midiOutput) {
+          midiOutput.send([0xc0 | channel, program]);
+        }
+      }
+
+       function sendNoteOn(note, velocity = 100) {
+        // Trigger visualizer
+        simulatedVolume = Math.min(simulatedVolume + (velocity / 127) * 0.5, 1.0);
+
+        if (midiOutput) {
+          midiOutput.send([0x90 | channel, note, velocity]);
+        }
+      }
+
+      function sendNoteOff(note) {
+        if (midiOutput) {
+          midiOutput.send([0x80 | channel, note, 0]);
+        }
+      }
+
+      // Format value based on data-format attribute
+      function formatValue(value, format) {
+        switch (format) {
+          case 'bpm':
+            return Math.round(60 + (value * 180 / 127));  // 60-240 BPM
+          case 'percent':
+            return Math.round(10 + (value * 90 / 127)) + '%';  // 10-100%
+          case 'percent100':
+            return Math.round(value * 100 / 127) + '%';  // 0-100%
+          case 'octaves':
+            return 1 + Math.floor(value * 3 / 127);  // 1-4
+          case 'time2s': {
+            // 0.001 + val * 1.999 (0.001-2.0s)
+            const time = 1 + (value / 127) * 1999;  // 1-2000ms
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
+          }
+          case 'time3s': {
+            // 0.001 + val * 2.999 (0.001-3.0s)
+            const time = 1 + (value / 127) * 2999;  // 1-3000ms
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
+          }
+          case 'fmratio': {
+            // 0.5 + val * 7.5 (0.5-8.0)
+            return (0.5 + (value / 127) * 7.5).toFixed(1);
+          }
+          case 'fmindex': {
+            // 0 - 10
+            return (value * 10 / 127).toFixed(1);
+          }
+          case 'portatime': {
+            // 0.01 + val * 0.99 (10ms-1000ms)
+            const time = 10 + (value / 127) * 990;
+            return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(2) + 's';
+          }
+          case 'pwbipolar': {
+            // -100% to +100% (0=center)
+            const pw = Math.round((value / 127) * 200 - 100);
+            return (pw >= 0 ? '+' : '') + pw + '%';
+          }
+          case 'tremolofreq':
+            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
+          case 'flangerfreq':
+            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
+          case 'db':
+            // 0 to -80 dB
+            const db = Math.round(-80 + (value / 127) * 80);
+            return db + 'dB';
+          case 'ratio':
+            // 1:1 to 40:1
+            return (1.0 + (value / 127) * 39.0).toFixed(1) + ':1';
+          case 'ms_attack':
+             // 1ms to 500ms
+             return Math.round(1 + (value / 127) * 499) + 'ms';
+          case 'ms_release':
+             // 1ms to 2000ms
+             return Math.round(1 + (value / 127) * 1999) + 'ms';
+          case 'tremolofreq':
+            // 0.5 - 20 Hz
+            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
+          case 'flangerfreq':
+            // 0.1 - 5.0 Hz
+            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
+          default:
+            return value;
+        }
+      }
+
+      // Setup sliders
+      document.querySelectorAll('input[type="range"]').forEach((slider) => {
+        const valueDisplay = document.getElementById(slider.id + "Val");
+
+        slider.addEventListener("input", () => {
+          const cc = parseInt(slider.dataset.cc);
+          const value = parseInt(slider.value);
+          const format = slider.dataset.format;
+          if (valueDisplay) {
+            valueDisplay.textContent = formatValue(value, format);
+          }
+          sendCC(cc, value);
+        });
+      });
+
+      // Setup synth mode buttons (exclusive selection)
+      document.querySelectorAll(".synth-btn[data-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".synth-btn[data-mode]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          sendProgramChange(parseInt(btn.dataset.mode));
+        });
+      });
+
+      // Setup velocity curve buttons (exclusive selection)
+      document.querySelectorAll(".vel-curve-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".vel-curve-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const cc = parseInt(btn.dataset.cc);
+          const curveValue = parseInt(btn.dataset.curve) * 42; // 0, 42, 84 for 0, 1, 2
+          sendCC(cc, curveValue);
+        });
+      });
+
+      // Setup toggle buttons for enable/disable (CC64-68)
+      document.querySelectorAll(".toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const cc = parseInt(btn.dataset.cc);
+          const newState = btn.dataset.state === "0" ? 1 : 0;
+          btn.dataset.state = newState;
+
+          btn.textContent = newState ? "✓" : "✗";
+          btn.classList.toggle("active", newState);
+
+          sendCC(cc, newState ? 127 : 0);
+        });
+      });
+
+      // Setup waveform buttons (exclusive selection, send CC70)
+      document.querySelectorAll(".waveform-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".waveform-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const waveform = parseInt(btn.dataset.wf);
+          sendCC(70, Math.floor(waveform * 18.14));
+        });
+      });
+
+      // Setup arp direction buttons (exclusive selection, send CC111)
+      document.querySelectorAll(".arp-dir-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".arp-dir-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const dir = parseInt(btn.dataset.dir);
+          sendCC(111, dir * 32);  // 0, 32, 64, 96 for Up/Down/UpDown/Random
+        });
+      });
+
+      // Build keyboard
+      function buildKeyboard() {
+        const keyboard = document.getElementById("keyboard");
+        const notes = [
+          { note: 60, black: false }, // C4
+          { note: 61, black: true }, // C#
+          { note: 62, black: false }, // D
+          { note: 63, black: true }, // D#
+          { note: 64, black: false }, // E
+          { note: 65, black: false }, // F
+          { note: 66, black: true }, // F#
+          { note: 67, black: false }, // G
+          { note: 68, black: true }, // G#
+          { note: 69, black: false }, // A
+          { note: 70, black: true }, // A#
+          { note: 71, black: false }, // B
+          { note: 72, black: false }, // C5
+        ];
+
+        notes.forEach(({ note, black }) => {
+          const key = document.createElement("div");
+          key.className = "key" + (black ? " black" : "");
+          key.dataset.note = note;
+
+          key.addEventListener("mousedown", () => {
+            if (!keyboardEnabled) return;
+            key.classList.add("pressed");
+            sendNoteOn(note);
+          });
+
+          key.addEventListener("mouseup", () => {
+            if (!keyboardEnabled) return;
+            key.classList.remove("pressed");
+            sendNoteOff(note);
+          });
+
+          key.addEventListener("mouseleave", () => {
+            if (!keyboardEnabled) return;
+            if (key.classList.contains("pressed")) {
+              key.classList.remove("pressed");
+              sendNoteOff(note);
+            }
+          });
+
+          keyboard.appendChild(key);
+        });
+      }
+
+      // Computer keyboard support
+      const keyMap = {
+        a: 60,
+        w: 61,
+        s: 62,
+        e: 63,
+        d: 64,
+        f: 65,
+        t: 66,
+        g: 67,
+        y: 68,
+        h: 69,
+        u: 70,
+        j: 71,
+        k: 72,
+      };
+      const pressedKeys = new Set();
+
+      document.addEventListener("keydown", (e) => {
+        if (!keyboardEnabled) return;
+        const note = keyMap[e.key.toLowerCase()];
+        if (note && !pressedKeys.has(e.key)) {
+          pressedKeys.add(e.key);
+          document
+            .querySelector(`[data-note="${note}"]`)
+            ?.classList.add("pressed");
+          sendNoteOn(note);
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        if (!keyboardEnabled) return;
+        const note = keyMap[e.key.toLowerCase()];
+        if (note) {
+          pressedKeys.delete(e.key);
+          document
+            .querySelector(`[data-note="${note}"]`)
+            ?.classList.remove("pressed");
+          sendNoteOff(note);
+        }
+      });
+
+      // Visualizer State
+      let analyser, source;
+      let simulatedVolume = 0;
+      let visualizerRunning = true;
+      const canvas = document.getElementById('signalCanvas');
+      const ctx = canvas.getContext('2d');
+
+      function resizeCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // Visualization Loop
+      function drawVisualizer() {
+        if (!visualizerRunning) return;
+        requestAnimationFrame(drawVisualizer);
+
+        ctx.fillStyle = '#0a0a0f'; // BG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Simulate decay
+        simulatedVolume *= 0.92;
+        if (simulatedVolume < 0.001) simulatedVolume = 0;
+
+        // Draw Bars
+        const bars = 30;
+        const barWidth = canvas.width / bars;
+
+        // Gradient
+        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        gradient.addColorStop(0, '#44ff88'); // Green
+        gradient.addColorStop(0.6, '#ffee00'); // Yellow
+        gradient.addColorStop(1, '#ff4466'); // Red
+
+        ctx.fillStyle = gradient;
+
+        for (let i = 0; i < bars; i++) {
+           // Create a "wave" effect based on simulated volume
+           let h = simulatedVolume * canvas.height;
+
+           // Add some randomness/noise to make it look active
+           if (simulatedVolume > 0.01) {
+               h *= (0.8 + Math.random() * 0.4);
+           }
+
+           // Middle bars higher
+           const centerDist = Math.abs(i - bars / 2) / (bars / 2); // 0 at center, 1 at edges
+           h *= (1.0 - centerDist * 0.5);
+
+           ctx.fillRect(i * barWidth + 1, canvas.height - h, barWidth - 2, h);
+        }
+
+        // Update text status rarely to save DOM updates
+        if (Math.random() < 0.1) {
+             const db = simulatedVolume > 0 ? 20 * Math.log10(simulatedVolume) : -100;
+             const dbStr = db < -90 ? "-inf" : db.toFixed(1);
+             document.getElementById('visualizer-status').innerText = `RMS: ${dbStr} dB`;
+        }
+      }
+
+      // Start loop
+      drawVisualizer();
+
+      // Init
+      buildKeyboard();
+
+
+      // Keyboard toggle button handler
+      document.getElementById('keyboardToggle').addEventListener('click', function() {
+        keyboardEnabled = !keyboardEnabled;
+        this.textContent = keyboardEnabled ? '✓' : '✗';
+        this.classList.toggle('active', keyboardEnabled);
+        document.getElementById('keyboard').style.opacity = keyboardEnabled ? '1' : '0.4';
+      });
+    </script>
+</div></div></body>
+</html>

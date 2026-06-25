@@ -5,6 +5,10 @@ if command -v emcc &> /dev/null; then
     echo "Emscripten detectado no PATH."
 elif [ -d "emsdk" ]; then
     source ./emsdk/emsdk_env.sh
+    if ! command -v emcc &> /dev/null; then
+        echo "Erro: emsdk carregado, mas emcc não foi encontrado no PATH."
+        exit 1
+    fi
 else
     echo "Erro: emcc não encontrado."
     exit 1

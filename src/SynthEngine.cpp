@@ -186,7 +186,7 @@ void SynthEngine::Init(float sample_rate) {
 int SynthEngine::AllocateVoice(uint8_t note) {
     int free_voice = -1;
     int oldest_voice = 0;
-    uint32_t oldest_age = 0;
+    uint32_t min_age = 0xFFFFFFFF;
 
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voices[i].note == note && voices[i].gate) {
@@ -195,8 +195,8 @@ int SynthEngine::AllocateVoice(uint8_t note) {
         if (!voices[i].gate && !voices[i].env.IsRunning()) {
             free_voice = i;
         }
-        if (voices[i].age > oldest_age) {
-            oldest_age = voices[i].age;
+        if (voices[i].age < min_age) {
+            min_age = voices[i].age;
             oldest_voice = i;
         }
     }

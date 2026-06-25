@@ -692,32 +692,7 @@
       }
 
       // Send MIDI messages
-      function sendCC(cc, value) {
-        if (midiOutput) {
-          midiOutput.send([0xb0 | channel, cc, value]);
-        }
-      }
-
-      function sendProgramChange(program) {
-        if (midiOutput) {
-          midiOutput.send([0xc0 | channel, program]);
-        }
-      }
-
-       function sendNoteOn(note, velocity = 100) {
-        // Trigger visualizer
-        simulatedVolume = Math.min(simulatedVolume + (velocity / 127) * 0.5, 1.0);
-
-        if (midiOutput) {
-          midiOutput.send([0x90 | channel, note, velocity]);
-        }
-      }
-
-      function sendNoteOff(note) {
-        if (midiOutput) {
-          midiOutput.send([0x80 | channel, note, 0]);
-        }
-      }
+      // Redundant hardware MIDI functions removed to prevent overriding Wasm functions
 
       // Format value based on data-format attribute
       function formatValue(value, format) {

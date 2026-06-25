@@ -610,6 +610,7 @@
 <div class="keyboard" id="keyboard"></div>
 </div>
 <script>
+      let keyboardEnabled = true;
       let audioContext;
       let synthNode;
 
@@ -620,7 +621,7 @@
 
           try {
               audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-              await audioContext.audioWorklet.addModule('wasm/synth-worklet.js');
+              await audioContext.audioWorklet.addModule('./wasm/synth-worklet.js');
               synthNode = new AudioWorkletNode(audioContext, 'synth-processor', { outputChannelCount: [2] });
               synthNode.connect(audioContext.destination);
 

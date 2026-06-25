@@ -25,8 +25,17 @@ void AudioCallback(int32_t *buffer, size_t size) {
 
     // Conversão do float resultante para o I2S DAC de 32 bits
     for (size_t i = 0; i < size; i++) {
-        buffer[i * 2] = (int32_t)(out_l[i] * 2147483647.0f);
-        buffer[i * 2 + 1] = (int32_t)(out_r[i] * 2147483647.0f);
+        float sample_l = out_l[i];
+        float sample_r = out_r[i];
+
+        // Defensive clamping
+        if (sample_l > 1.0f) sample_l = 1.0f;
+        else if (sample_l < -1.0f) sample_l = -1.0f;
+        if (sample_r > 1.0f) sample_r = 1.0f;
+        else if (sample_r < -1.0f) sample_r = -1.0f;
+
+        buffer[i * 2] = (int32_t)(sample_l * 2147483647.0f);
+        buffer[i * 2 + 1] = (int32_t)(sample_r * 2147483647.0f);
     }
 }
 

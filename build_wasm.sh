@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# Garante que o SDK está carregado no PATH desta sessão
-if [ -d "emsdk" ]; then
+# Carrega o Emscripten de forma flexível (CI/CD ou local)
+if command -v emcc &> /dev/null; then
+    echo "Emscripten detectado no PATH."
+elif [ -d "emsdk" ]; then
     source ./emsdk/emsdk_env.sh
 else
-    echo "Erro: emsdk não encontrado. Rode ./setup_env.sh primeiro."
+    echo "Erro: emcc não encontrado."
     exit 1
 fi
 

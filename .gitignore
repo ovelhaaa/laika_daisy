@@ -4,3 +4,7 @@
 .vscode/launch.json
 .vscode/ipch
 emsdk/
+
+# Artefatos WebAssembly gerados (compilados na nuvem)
+web/wasm/synth.js
+web/wasm/synth.wasm

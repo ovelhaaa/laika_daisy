@@ -617,12 +617,24 @@
       async function initWebAudio() {
           if (audioContext) return;
 
+
           document.getElementById('status').textContent = "🟡 Carregando Wasm...";
 
           try {
               audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+
+              // Buscamos o WASM na thread principal (onde fetch e URL funcionam)
+              const wasmResponse = await fetch('./wasm/synth.wasm');
+              if (!wasmResponse.ok) throw new Error("WASM file not found");
+              const wasmBuffer = await wasmResponse.arrayBuffer();
+
               await audioContext.audioWorklet.addModule('./wasm/synth-worklet.js');
-              synthNode = new AudioWorkletNode(audioContext, 'synth-processor', { outputChannelCount: [2] });
+              synthNode = new AudioWorkletNode(audioContext, 'synth-processor', {
+                  outputChannelCount: [2],
+                  processorOptions: {
+                      wasmBinary: wasmBuffer
+                  }
+              });
               synthNode.connect(audioContext.destination);
 
               synthNode.port.onmessage = (e) => {

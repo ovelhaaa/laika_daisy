@@ -12,10 +12,9 @@ class SynthProcessor extends AudioWorkletProcessor {
         this.port.onmessage = this.handleMessage.bind(this);
 
         Module({
-            locateFile: (path) => {
-                console.log("locateFile:", path);
-                return new URL("./wasm/" + path, import.meta.url).href;
-            }
+    locateFile: (path) => {
+    return "wasm/" + path;
+}
         })
         .then((wasmModule) => {
             console.log("WASM carregado");

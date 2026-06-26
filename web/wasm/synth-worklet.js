@@ -18,10 +18,14 @@ class SynthProcessor extends AudioWorkletProcessor {
 
         Module({
             instantiateWasm: function(info, receiveInstance) {
-                WebAssembly.instantiate(wasmModule, info).then(function(instance) {
+                try {
+                    const instance = new WebAssembly.Instance(wasmModule, info);
                     receiveInstance(instance, wasmModule);
-                });
-                return {};
+                    return instance.exports;
+                } catch (err) {
+                    console.error("SynthProcessor: WebAssembly instantiation failed", err);
+                    throw err;
+                }
             }
         })
         .then((wasmModule) => {

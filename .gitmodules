@@ -1,0 +1,3 @@
+[submodule "DaisySP"]
+	path = lib/DaisySP
+	url = https://github.com/electro-smith/DaisySP.git

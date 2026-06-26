@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14

@@ -11,13 +11,18 @@ class SynthProcessor extends AudioWorkletProcessor {
 
         this.port.onmessage = this.handleMessage.bind(this);
 
-        const wasmBinary = options?.processorOptions?.wasmBinary;
-        if (!wasmBinary) {
-            throw new Error("SynthProcessor: wasmBinary is required in processorOptions");
+        const wasmModule = options?.processorOptions?.wasmModule;
+        if (!wasmModule) {
+            throw new Error("SynthProcessor: wasmModule is required in processorOptions");
         }
 
         Module({
-            wasmBinary: wasmBinary
+            instantiateWasm: function(info, receiveInstance) {
+                WebAssembly.instantiate(wasmModule, info).then(function(instance) {
+                    receiveInstance(instance, wasmModule);
+                });
+                return {};
+            }
         })
         .then((wasmModule) => {
             console.log("WASM carregado");

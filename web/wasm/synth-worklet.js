@@ -1,7 +1,7 @@
 import Module from './synth.js';
 
 class SynthProcessor extends AudioWorkletProcessor {
-    constructor() {
+    constructor(options) {
         super();
 
         this.wasmApp = null;
@@ -12,9 +12,7 @@ class SynthProcessor extends AudioWorkletProcessor {
         this.port.onmessage = this.handleMessage.bind(this);
 
         Module({
-    locateFile: (path) => {
-    return "wasm/" + path;
-}
+            wasmBinary: options.processorOptions.wasmBinary
         })
         .then((wasmModule) => {
             console.log("WASM carregado");

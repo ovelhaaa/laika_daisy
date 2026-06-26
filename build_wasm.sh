@@ -28,7 +28,7 @@ FLAGS="-O3 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -include stddef.h"
 FLAGS+=" -s EXPORTED_FUNCTIONS=['_wasm_synth_init','_wasm_synth_process','_wasm_synth_send_midi','_malloc','_free']"
 FLAGS+=" -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
 FLAGS+=" -s ERROR_ON_UNDEFINED_SYMBOLS=0"
-FLAGS+=" -s MODULARIZE=1 -s EXPORT_ES6=1"
+FLAGS+=" -s MODULARIZE=1 -s EXPORT_ES6=1 -s ENVIRONMENT=web,worker"
 FLAGS+=" --no-entry"
 
 echo "Compilando para Wasm..."

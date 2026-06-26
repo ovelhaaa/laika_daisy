@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -112,7 +111,6 @@
         width: 100%;
         height: 8px;
         border-radius: 4px;
-        background: #1a1a2e;
         background: #1a1a2e;
         outline: none;
         appearance: none;
@@ -613,15 +611,26 @@
       let keyboardEnabled = true;
       let audioContext;
       let synthNode;
+      let midiOutput = null; // Add missing midiOutput reference
 
       async function initWebAudio() {
-          if (audioContext) return;
+          if (audioContext) {
+              if (audioContext.state === 'suspended') {
+                  console.log("[UI] AudioContext estava 'suspended', chamando resume()...");
+                  await audioContext.resume();
+                  console.log("[UI] AudioContext state após resume:", audioContext.state);
+              } else {
+                  console.log("[UI] AudioContext já existe e está:", audioContext.state);
+              }
+              return;
+          }
 
-
+          console.log("[UI] Inicializando Web Audio API...");
           document.getElementById('status').textContent = "🟡 Carregando Wasm...";
 
           try {
               audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+              console.log("[UI] AudioContext criado. State:", audioContext.state, "SampleRate:", audioContext.sampleRate);
 
               // Buscamos e compilamos o WASM na thread principal (onde fetch e compileStreaming funcionam)
               const wasmResponse = await fetch('./wasm/synth.wasm');
@@ -641,11 +650,11 @@
                   if (e.data.type === 'ready') {
                       const statusEl = document.getElementById('status');
                       statusEl.className = "status connected";
-                      statusEl.textContent = "🟢 Web Synth Online (Wasm)";
+                      statusEl.textContent = "🟢 Web Synth Online";
                   }
               };
           } catch (err) {
-              console.error(err);
+              console.error("[UI] Erro:", err);
               document.getElementById('status').className = "status disconnected";
               document.getElementById('status').textContent = "🔴 Erro ao carregar Wasm: " + err.message;
           }
@@ -654,30 +663,41 @@
       document.body.addEventListener('click', initWebAudio, { once: true });
 
       function sendCC(cc, value) {
-          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0xB0, data1: cc, data2: value });
+          if (synthNode) {
+              const msg = { type: 'midi', status: 0xB0, data1: cc, data2: value };
+              console.log("[UI] Enviando MIDI CC:", msg);
+              synthNode.port.postMessage(msg);
+          }
       }
 
       function sendProgramChange(program) {
-          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0xC0, data1: program, data2: 0 });
+          if (synthNode) {
+              const msg = { type: 'midi', status: 0xC0, data1: program, data2: 0 };
+              console.log("[UI] Enviando Program Change:", msg);
+              synthNode.port.postMessage(msg);
+          }
       }
 
       function sendNoteOn(note, velocity = 100) {
+          console.log(`[UI] sendNoteOn(${note}, ${velocity})`);
           simulatedVolume = Math.min(simulatedVolume + (velocity / 127) * 0.5, 1.0);
-          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0x90, data1: note, data2: velocity });
+          if (synthNode) {
+              const msg = { type: 'midi', status: 0x90, data1: note, data2: velocity };
+              synthNode.port.postMessage(msg);
+          }
       }
 
       function sendNoteOff(note) {
-          if (synthNode) synthNode.port.postMessage({ type: 'midi', status: 0x80, data1: note, data2: 0 });
+          console.log(`[UI] sendNoteOff(${note})`);
+          if (synthNode) {
+              const msg = { type: 'midi', status: 0x80, data1: note, data2: 0 };
+              synthNode.port.postMessage(msg);
+          }
       }
 
-
-      // Handle incoming MIDI and forward to output
       function handleMIDIInput(event) {
         if (midiOutput && event.data) {
-          // Forward all MIDI messages to output
           midiOutput.send(event.data);
-
-          // Visual feedback on virtual keyboard for notes
           const status = event.data[0] & 0xF0;
           const note = event.data[1];
 
@@ -700,92 +720,50 @@
         }
       }
 
-      // Send MIDI messages
-      // Redundant hardware MIDI functions removed to prevent overriding Wasm functions
-
-      // Format value based on data-format attribute
       function formatValue(value, format) {
         switch (format) {
-          case 'bpm':
-            return Math.round(60 + (value * 180 / 127));  // 60-240 BPM
-          case 'percent':
-            return Math.round(10 + (value * 90 / 127)) + '%';  // 10-100%
-          case 'percent100':
-            return Math.round(value * 100 / 127) + '%';  // 0-100%
-          case 'octaves':
-            return 1 + Math.floor(value * 3 / 127);  // 1-4
+          case 'bpm': return Math.round(60 + (value * 180 / 127));
+          case 'percent': return Math.round(10 + (value * 90 / 127)) + '%';
+          case 'percent100': return Math.round(value * 100 / 127) + '%';
+          case 'octaves': return 1 + Math.floor(value * 3 / 127);
           case 'time2s': {
-            // 0.001 + val * 1.999 (0.001-2.0s)
-            const time = 1 + (value / 127) * 1999;  // 1-2000ms
+            const time = 1 + (value / 127) * 1999;
             return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
           }
           case 'time3s': {
-            // 0.001 + val * 2.999 (0.001-3.0s)
-            const time = 1 + (value / 127) * 2999;  // 1-3000ms
+            const time = 1 + (value / 127) * 2999;
             return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(1) + 's';
           }
-          case 'fmratio': {
-            // 0.5 + val * 7.5 (0.5-8.0)
-            return (0.5 + (value / 127) * 7.5).toFixed(1);
-          }
-          case 'fmindex': {
-            // 0 - 10
-            return (value * 10 / 127).toFixed(1);
-          }
+          case 'fmratio': return (0.5 + (value / 127) * 7.5).toFixed(1);
+          case 'fmindex': return (value * 10 / 127).toFixed(1);
           case 'portatime': {
-            // 0.01 + val * 0.99 (10ms-1000ms)
             const time = 10 + (value / 127) * 990;
             return time < 1000 ? Math.round(time) + 'ms' : (time / 1000).toFixed(2) + 's';
           }
           case 'pwbipolar': {
-            // -100% to +100% (0=center)
             const pw = Math.round((value / 127) * 200 - 100);
             return (pw >= 0 ? '+' : '') + pw + '%';
           }
-          case 'tremolofreq':
-            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
-          case 'flangerfreq':
-            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
-          case 'db':
-            // 0 to -80 dB
-            const db = Math.round(-80 + (value / 127) * 80);
-            return db + 'dB';
-          case 'ratio':
-            // 1:1 to 40:1
-            return (1.0 + (value / 127) * 39.0).toFixed(1) + ':1';
-          case 'ms_attack':
-             // 1ms to 500ms
-             return Math.round(1 + (value / 127) * 499) + 'ms';
-          case 'ms_release':
-             // 1ms to 2000ms
-             return Math.round(1 + (value / 127) * 1999) + 'ms';
-          case 'tremolofreq':
-            // 0.5 - 20 Hz
-            return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
-          case 'flangerfreq':
-            // 0.1 - 5.0 Hz
-            return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
-          default:
-            return value;
+          case 'db': return Math.round(-80 + (value / 127) * 80) + 'dB';
+          case 'ratio': return (1.0 + (value / 127) * 39.0).toFixed(1) + ':1';
+          case 'ms_attack': return Math.round(1 + (value / 127) * 499) + 'ms';
+          case 'ms_release': return Math.round(1 + (value / 127) * 1999) + 'ms';
+          case 'tremolofreq': return (0.5 + (value / 127) * 19.5).toFixed(1) + 'Hz';
+          case 'flangerfreq': return (0.1 + (value / 127) * 4.9).toFixed(1) + 'Hz';
+          default: return value;
         }
       }
 
-      // Setup sliders
       document.querySelectorAll('input[type="range"]').forEach((slider) => {
         const valueDisplay = document.getElementById(slider.id + "Val");
-
         slider.addEventListener("input", () => {
           const cc = parseInt(slider.dataset.cc);
           const value = parseInt(slider.value);
-          const format = slider.dataset.format;
-          if (valueDisplay) {
-            valueDisplay.textContent = formatValue(value, format);
-          }
+          if (valueDisplay) valueDisplay.textContent = formatValue(value, slider.dataset.format);
           sendCC(cc, value);
         });
       });
 
-      // Setup synth mode buttons (exclusive selection)
       document.querySelectorAll(".synth-btn[data-mode]").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".synth-btn[data-mode]").forEach((b) => b.classList.remove("active"));
@@ -794,68 +772,50 @@
         });
       });
 
-      // Setup velocity curve buttons (exclusive selection)
       document.querySelectorAll(".vel-curve-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".vel-curve-btn").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          const cc = parseInt(btn.dataset.cc);
-          const curveValue = parseInt(btn.dataset.curve) * 42; // 0, 42, 84 for 0, 1, 2
-          sendCC(cc, curveValue);
+          sendCC(parseInt(btn.dataset.cc), parseInt(btn.dataset.curve) * 42);
         });
       });
 
-      // Setup toggle buttons for enable/disable (CC64-68)
       document.querySelectorAll(".toggle-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
+          if(btn.id === 'keyboardToggle') return;
           const cc = parseInt(btn.dataset.cc);
           const newState = btn.dataset.state === "0" ? 1 : 0;
           btn.dataset.state = newState;
-
           btn.textContent = newState ? "✓" : "✗";
           btn.classList.toggle("active", newState);
-
           sendCC(cc, newState ? 127 : 0);
         });
       });
 
-      // Setup waveform buttons (exclusive selection, send CC70)
       document.querySelectorAll(".waveform-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".waveform-btn").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          const waveform = parseInt(btn.dataset.wf);
-          sendCC(70, Math.floor(waveform * 18.14));
+          sendCC(70, Math.floor(parseInt(btn.dataset.wf) * 18.14));
         });
       });
 
-      // Setup arp direction buttons (exclusive selection, send CC111)
       document.querySelectorAll(".arp-dir-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".arp-dir-btn").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          const dir = parseInt(btn.dataset.dir);
-          sendCC(111, dir * 32);  // 0, 32, 64, 96 for Up/Down/UpDown/Random
+          sendCC(111, parseInt(btn.dataset.dir) * 32);
         });
       });
 
-      // Build keyboard
       function buildKeyboard() {
         const keyboard = document.getElementById("keyboard");
         const notes = [
-          { note: 60, black: false }, // C4
-          { note: 61, black: true }, // C#
-          { note: 62, black: false }, // D
-          { note: 63, black: true }, // D#
-          { note: 64, black: false }, // E
-          { note: 65, black: false }, // F
-          { note: 66, black: true }, // F#
-          { note: 67, black: false }, // G
-          { note: 68, black: true }, // G#
-          { note: 69, black: false }, // A
-          { note: 70, black: true }, // A#
-          { note: 71, black: false }, // B
-          { note: 72, black: false }, // C5
+          { note: 60, black: false }, { note: 61, black: true }, { note: 62, black: false },
+          { note: 63, black: true }, { note: 64, black: false }, { note: 65, black: false },
+          { note: 66, black: true }, { note: 67, black: false }, { note: 68, black: true },
+          { note: 69, black: false }, { note: 70, black: true }, { note: 71, black: false },
+          { note: 72, black: false }
         ];
 
         notes.forEach(({ note, black }) => {
@@ -865,6 +825,7 @@
 
           key.addEventListener("mousedown", () => {
             if (!keyboardEnabled) return;
+            console.log(`[UI] MouseDown na tecla: ${note}`);
             key.classList.add("pressed");
             sendNoteOn(note);
           });
@@ -882,27 +843,11 @@
               sendNoteOff(note);
             }
           });
-
           keyboard.appendChild(key);
         });
       }
 
-      // Computer keyboard support
-      const keyMap = {
-        a: 60,
-        w: 61,
-        s: 62,
-        e: 63,
-        d: 64,
-        f: 65,
-        t: 66,
-        g: 67,
-        y: 68,
-        h: 69,
-        u: 70,
-        j: 71,
-        k: 72,
-      };
+      const keyMap = { a:60, w:61, s:62, e:63, d:64, f:65, t:66, g:67, y:68, h:69, u:70, j:71, k:72 };
       const pressedKeys = new Set();
 
       document.addEventListener("keydown", (e) => {
@@ -910,9 +855,7 @@
         const note = keyMap[e.key.toLowerCase()];
         if (note && !pressedKeys.has(e.key)) {
           pressedKeys.add(e.key);
-          document
-            .querySelector(`[data-note="${note}"]`)
-            ?.classList.add("pressed");
+          document.querySelector(`[data-note="${note}"]`)?.classList.add("pressed");
           sendNoteOn(note);
         }
       });
@@ -922,14 +865,11 @@
         const note = keyMap[e.key.toLowerCase()];
         if (note) {
           pressedKeys.delete(e.key);
-          document
-            .querySelector(`[data-note="${note}"]`)
-            ?.classList.remove("pressed");
+          document.querySelector(`[data-note="${note}"]`)?.classList.remove("pressed");
           sendNoteOff(note);
         }
       });
 
-      // Visualizer State
       let analyser, source;
       let simulatedVolume = 0;
       let visualizerRunning = true;
@@ -943,47 +883,29 @@
       window.addEventListener('resize', resizeCanvas);
       resizeCanvas();
 
-      // Visualization Loop
       function drawVisualizer() {
         if (!visualizerRunning) return;
         requestAnimationFrame(drawVisualizer);
-
-        ctx.fillStyle = '#0a0a0f'; // BG
+        ctx.fillStyle = '#0a0a0f';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Simulate decay
         simulatedVolume *= 0.92;
         if (simulatedVolume < 0.001) simulatedVolume = 0;
-
-        // Draw Bars
         const bars = 30;
         const barWidth = canvas.width / bars;
-
-        // Gradient
         const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-        gradient.addColorStop(0, '#44ff88'); // Green
-        gradient.addColorStop(0.6, '#ffee00'); // Yellow
-        gradient.addColorStop(1, '#ff4466'); // Red
-
+        gradient.addColorStop(0, '#44ff88');
+        gradient.addColorStop(0.6, '#ffee00');
+        gradient.addColorStop(1, '#ff4466');
         ctx.fillStyle = gradient;
 
         for (let i = 0; i < bars; i++) {
-           // Create a "wave" effect based on simulated volume
            let h = simulatedVolume * canvas.height;
-
-           // Add some randomness/noise to make it look active
-           if (simulatedVolume > 0.01) {
-               h *= (0.8 + Math.random() * 0.4);
-           }
-
-           // Middle bars higher
-           const centerDist = Math.abs(i - bars / 2) / (bars / 2); // 0 at center, 1 at edges
+           if (simulatedVolume > 0.01) h *= (0.8 + Math.random() * 0.4);
+           const centerDist = Math.abs(i - bars / 2) / (bars / 2);
            h *= (1.0 - centerDist * 0.5);
-
            ctx.fillRect(i * barWidth + 1, canvas.height - h, barWidth - 2, h);
         }
 
-        // Update text status rarely to save DOM updates
         if (Math.random() < 0.1) {
              const db = simulatedVolume > 0 ? 20 * Math.log10(simulatedVolume) : -100;
              const dbStr = db < -90 ? "-inf" : db.toFixed(1);
@@ -991,14 +913,9 @@
         }
       }
 
-      // Start loop
       drawVisualizer();
-
-      // Init
       buildKeyboard();
 
-
-      // Keyboard toggle button handler
       document.getElementById('keyboardToggle').addEventListener('click', function() {
         keyboardEnabled = !keyboardEnabled;
         this.textContent = keyboardEnabled ? '✓' : '✗';

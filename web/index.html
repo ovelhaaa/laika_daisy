@@ -614,13 +614,13 @@
       let midiOutput = null; // Add missing midiOutput reference
 
       async function initWebAudio() {
-          if (audioContext) {
+          if (audioContext && synthNode) {
               if (audioContext.state === 'suspended') {
                   console.log("[UI] AudioContext estava 'suspended', chamando resume()...");
                   await audioContext.resume();
                   console.log("[UI] AudioContext state após resume:", audioContext.state);
               } else {
-                  console.log("[UI] AudioContext já existe e está:", audioContext.state);
+                  console.log("[UI] AudioContext e SynthNode já existem e estão prontos.");
               }
               return;
           }
@@ -629,8 +629,10 @@
           document.getElementById('status').textContent = "🟡 Carregando Wasm...";
 
           try {
-              audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-              console.log("[UI] AudioContext criado. State:", audioContext.state, "SampleRate:", audioContext.sampleRate);
+              if (!audioContext) {
+                  audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+              }
+              console.log("[UI] AudioContext criado/existente. State:", audioContext.state, "SampleRate:", audioContext.sampleRate);
 
               // Buscamos e compilamos o WASM na thread principal (onde fetch e compileStreaming funcionam)
               const wasmResponse = await fetch('./wasm/synth.wasm');
@@ -651,12 +653,18 @@
                       const statusEl = document.getElementById('status');
                       statusEl.className = "status connected";
                       statusEl.textContent = "🟢 Web Synth Online";
+                  } else if (e.data.type === 'error') {
+                      const statusEl = document.getElementById('status');
+                      statusEl.className = "status disconnected";
+                      statusEl.textContent = "🔴 Erro no Worklet: " + e.data.message;
+                      synthNode = null; // reseta nó para forçar retry
                   }
               };
           } catch (err) {
               console.error("[UI] Erro:", err);
               document.getElementById('status').className = "status disconnected";
               document.getElementById('status').textContent = "🔴 Erro ao carregar Wasm: " + err.message;
+              synthNode = null; // Reset para permitir retry na próxima vez que clicar
           }
       }
 
@@ -852,9 +860,10 @@
 
       document.addEventListener("keydown", (e) => {
         if (!keyboardEnabled) return;
-        const note = keyMap[e.key.toLowerCase()];
-        if (note && !pressedKeys.has(e.key)) {
-          pressedKeys.add(e.key);
+        const normalizedKey = e.key.toLowerCase();
+        const note = keyMap[normalizedKey];
+        if (note && !pressedKeys.has(normalizedKey)) {
+          pressedKeys.add(normalizedKey);
           document.querySelector(`[data-note="${note}"]`)?.classList.add("pressed");
           sendNoteOn(note);
         }
@@ -862,9 +871,10 @@
 
       document.addEventListener("keyup", (e) => {
         if (!keyboardEnabled) return;
-        const note = keyMap[e.key.toLowerCase()];
+        const normalizedKey = e.key.toLowerCase();
+        const note = keyMap[normalizedKey];
         if (note) {
-          pressedKeys.delete(e.key);
+          pressedKeys.delete(normalizedKey);
           document.querySelector(`[data-note="${note}"]`)?.classList.remove("pressed");
           sendNoteOff(note);
         }

@@ -45,6 +45,7 @@ class SynthProcessor extends AudioWorkletProcessor {
         })
         .catch((err) => {
             console.error("[Worklet] Falha ao carregar WASM:", err);
+            this.port.postMessage({ type: 'error', message: err.message || err.toString() });
         });
 
         this.processCount = 0;
@@ -74,6 +75,19 @@ class SynthProcessor extends AudioWorkletProcessor {
     }
 
     process(inputs, outputs, parameters) {
+        const output = outputs[0];
+        const channelL = output[0];
+        const channelR = output[1];
+
+        // -- INÍCIO DO BYPASS DE DSP --
+        // Teste de sinal DC puro 0.05 executado ANTES do guard do WASM.
+        // Assim testamos a cadeia gráfica mesmo se o WASM falhar ao carregar.
+        channelL.fill(0.05);
+        if (channelR) {
+            channelR.fill(0.05);
+        }
+        // -- FIM DO BYPASS --
+
         if (!this.wasmApp || !this.outLPtr) return true;
 
         this.processCount++;
@@ -81,19 +95,7 @@ class SynthProcessor extends AudioWorkletProcessor {
             console.log(`[Worklet] process() executando... Iteração: ${this.processCount}`);
         }
 
-        const output = outputs[0];
-        const channelL = output[0];
-        const channelR = output[1];
-
         const frames = Math.min(channelL.length, this.bufferSize);
-
-        // -- INÍCIO DO BYPASS DE DSP --
-        // Teste de sinal DC puro 0.05. Se não houver som,
-        // o problema está no encadeamento de nós e não no WASM!
-        channelL.fill(0.05);
-        if (channelR) {
-            channelR.fill(0.05);
-        }
 
         // As linhas de chamada real para process() no DSP
         // encontram-se omitidas temporariamente para testar a cadeia:
